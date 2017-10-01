@@ -48,6 +48,30 @@ var Connector = class StlinkUsbConnector {
         throw new Exception(`Unknown ST-Link/V2 type ${H16(dev.vendorId)}:${H16(dev.productId)}`);
     }
 
+    async connect() {
+        await this._dev.open();
+        if (this._dev.configuration != 1) {
+            await this._dev.selectConfiguration(1);
+        }
+        let intf = this._dev.configuration.interfaces[0];
+        if (!intf.claimed) {
+            await this._dev.claimInterface(0);
+        }
+        if (intf.alternate === null || intf.alternate.alternateSetting != 0) {
+            await this._dev.selectAlternateInterface(0, 0);
+        }
+    }
+
+    async disconnect() {
+        try {
+            await this._dev.close();
+        } catch (error) {
+            if (this._dbg) {
+                this._dbg.debug("Error when disconnecting: " + error);
+            }
+        }
+    }
+
     get version() {
         return this._dev_type.version;
     }
@@ -94,8 +118,6 @@ var Connector = class StlinkUsbConnector {
             read_size &= 0xffc;
         }
 
-        this._debug(`Reading ${size} (${read_size}) bytes`);
-
         let result;
         try {
             result = await this._dev.transferIn(this._dev_type.inPipe & 0x7f, read_size);
@@ -135,6 +157,7 @@ var Connector = class StlinkUsbConnector {
             throw new Exception(`Error too many Bytes in command: ${src.length}, maximum is ${STLINK_CMD_SIZE_V2}`);
         }
 
+        // pad to 16 bytes
         let cmd_buffer = new Uint8Array(STLINK_CMD_SIZE_V2);
         src.forEach((v, i) => cmd_buffer[i] = v);
 

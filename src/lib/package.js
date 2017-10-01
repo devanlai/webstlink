@@ -8,5 +8,18 @@
 import * as usb from './stlinkusb.js';
 import * as exceptions from './stlinkex.js';
 import Stlinkv2 from './stlinkv2.js';
+import Logger from './dbg.js';
+import DEVICES from './stm32devices.js';
 
-export { usb, exceptions, Stlinkv2 };
+import { Stm32 } from './stm32.js';
+import { Stm32FP, Stm32FPXL } from './stm32fp.js';
+import { Stm32FS } from './stm32fs.js';
+
+let drivers = {
+    Stm32: Stm32,
+    Stm32FP: Stm32FP,
+    Stm32FPXL: Stm32FPXL,
+    Stm32FS: Stm32FS
+};
+
+export { exceptions, usb, drivers, Stlinkv2, Logger, DEVICES };

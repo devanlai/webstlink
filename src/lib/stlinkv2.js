@@ -9,7 +9,6 @@
  */
 
 import { Exception, Warning, UsbError } from './stlinkex.js';
-import { hex_word as H32 } from './util.js';
 
 const STLINK_GET_VERSION = 0xf1;
 const STLINK_DEBUG_COMMAND = 0xf2;
@@ -139,13 +138,16 @@ export default class Stlink {
         if (dev_ver === "V2-1") {
             this._ver_str += ("M" + this._ver_mass);
         }
-        this._debug("ST-Link version is " + this._ver_str);
         if (this.ver_api === 1) {
             throw new Warning(`ST-Link/${this._ver_str} is not supported, please upgrade firmware.`);
         }
         if (this.ver_jtag < 21) {
             throw new Warning(`ST-Link/${this._ver_str} is not recent firmware, please upgrade first - functionality is not guaranteed.`);
         }
+    }
+
+    get maximum_transfer_size() {
+        return STLINK_MAXIMUM_TRANSFER_SIZE;
     }
 
     get ver_stlink() {
@@ -177,9 +179,6 @@ export default class Stlink {
         let a0 = rx.getUint32(0, true);
         let a1 = rx.getUint32(4, true);
         this._target_voltage = (a0 !== 0) ? (2 * a1 * 1.2 / a0) : null;
-        if (this._target_voltage !== null) {
-            this._debug(`Target voltage is ${this._target_voltage}V`);
-        }
     }
 
     get target_voltage() {
@@ -189,7 +188,6 @@ export default class Stlink {
     async read_coreid() {
         let rx = await this._connector.xfer([STLINK_DEBUG_COMMAND, STLINK_DEBUG_READCOREID], {"rx_len": 4});
         this._coreid = rx.getUint32(0, true);
-        this._debug(`Core ID is 0x${H32(this._coreid)}`);
     }
 
     get coreid() {
@@ -359,4 +357,5 @@ export default class Stlink {
         view.setUint32(6, data.length, true);
         return this._connector.xfer(cmd, {"data": data});
     }
-}
+};
+

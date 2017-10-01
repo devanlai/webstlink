@@ -5,8 +5,25 @@
     <title>WebUSB STLink Test</title>
     <script src="test.js" type="module"></script>
     <style>
+      div.debug {
+        white-space: pre;
+      }
+      div.verbose {
+        white-space: pre;
+      }
       div.info {
         white-space: pre;
+      }
+      div.message {
+        white-space: pre;
+      }
+      div.error {
+        white-space: pre;
+        color: red;
+      }
+      div.warning {
+        white-space: pre;
+        color: red;
       }
       div.log {
         min-height: 3em;
@@ -21,6 +38,26 @@
       <button id="connect">Connect</button>
       <button id="flash">Flash</button>
     </p>
+    <p>
+      <details id="logLevel">
+        <summary>Logging Level - Normal</summary>
+        <form id="logLevelForm" method="dialog">
+          <label class="radio">
+            <input type="radio" name="logLevel" value="0" />Quiet - show warnings and errors only
+          </label>
+          <label class="radio">
+            <input type="radio" name="logLevel" value="1" checked />Normal - show pertinent information
+          </label>
+          <label class="radio">
+            <input type="radio" name="logLevel" value="2" />Verbose - show additional information
+          </label>
+          <label class="radio">
+            <input type="radio" name="logLevel" value="3" />Debug - show low-level troubleshooting information
+          </label>
+        </form>
+      </details>
+    </p>
     <div id="log" class="log"></div>
+
   </body>
 </html>
