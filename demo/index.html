@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <link rel="stylesheet" type="text/css" href="sakura.css" />
+    <title>WebUSB STLink Test</title>
+    <script src="test.js" type="module"></script>
+    <style>
+      div.info {
+        white-space: pre;
+      }
+      div.log {
+        min-height: 3em;
+        max-height: 100em;
+        overflow: scroll;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <p>
+      <button id="connect">Connect</button>
+      <button id="flash">Flash</button>
+    </p>
+    <div id="log" class="log"></div>
+  </body>
+</html>
