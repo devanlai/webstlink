@@ -177,6 +177,11 @@ class Stm32 {
         return this.set_mem(addr, data);
     }
 
+    core_status() {
+        this._dbg.debug("Stm32.core_status()");
+        return this._stlink.get_debugreg32(DHCSR_REG);
+    }
+
     async core_reset() {
         this._dbg.debug("Stm32.core_reset()");
         await this._stlink.set_debugreg32(DEMCR_REG, DEMCR_RUN_AFTER_RESET);

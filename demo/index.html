@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <link rel="stylesheet" type="text/css" href="sakura.css" />
+    <link rel="stylesheet" type="text/css" href="sakura-earthly.css" />
     <title>WebUSB STLink Test</title>
     <script src="test.js" type="module"></script>
     <style>
@@ -28,36 +28,104 @@
       div.log {
         min-height: 3em;
         max-height: 100em;
-        overflow: scroll;
         font-family: monospace;
+      }
+
+      div.registers {
+        display: flex;
+        flex-wrap: wrap;
+      }
+
+      span.register {
+        white-space: pre;
+        font-family: monospace;
+        flex: 1 0 27ch;
+        margin-left: 3ch;
+      }
+
+      span.register-updated {
+        font-weight: bold;
       }
     </style>
   </head>
   <body>
     <p>
       <button id="connect">Connect</button>
-      <button id="flash">Flash</button>
+      <button id="flash" disabled>Flash</button>
+      <button id="debug" disabled>Enable Debug</button>
+      <button id="runHalt" disabled>Halt</button>
+      <button id="step" disabled>Step</button>
+      <button id="reset" disabled>Reset</button>
     </p>
+
     <p>
-      <details id="logLevel">
-        <summary>Logging Level - Normal</summary>
-        <form id="logLevelForm" method="dialog">
-          <label class="radio">
-            <input type="radio" name="logLevel" value="0" />Quiet - show warnings and errors only
-          </label>
-          <label class="radio">
-            <input type="radio" name="logLevel" value="1" checked />Normal - show pertinent information
-          </label>
-          <label class="radio">
-            <input type="radio" name="logLevel" value="2" />Verbose - show additional information
-          </label>
-          <label class="radio">
-            <input type="radio" name="logLevel" value="3" />Debug - show low-level troubleshooting information
-          </label>
-        </form>
+      <details id="probeInfo">
+        <summary>Debugger - Disconnected</summary>
+        Product Name: <span id="productName"></span><br/>
+        Manufacturer: <span id="mfgName"></span><br/>
+        Serial Number: <span id="serialNumber"></span><br/>
       </details>
     </p>
-    <div id="log" class="log"></div>
+
+    <p>
+      <details id="targetInfo">
+        <summary>Target <span id="targetType">-</span> <span id="targetStatus">Unknown</span></summary>
+
+      </details>
+    </p>
+
+    <p>
+      <details id="registerDisplay">
+        <summary>
+          Registers: <button id="readRegisters" disabled>Read now</button>
+        </summary>
+        <div class="registers">
+          <span class="register" id="R0" >R0:  --------</span>
+          <span class="register" id="R1" >R1:  --------</span>
+          <span class="register" id="R2" >R2:  --------</span>
+          <span class="register" id="R3" >R3:  --------</span>
+          <span class="register" id="R4" >R4:  --------</span>
+          <span class="register" id="R5" >R5:  --------</span>
+          <span class="register" id="R6" >R6:  --------</span>
+          <span class="register" id="R7" >R7:  --------</span>
+          <span class="register" id="R8" >R8:  --------</span>
+          <span class="register" id="R9" >R9:  --------</span>
+          <span class="register" id="R10">R10: --------</span>
+          <span class="register" id="R11">R11: --------</span>
+          <span class="register" id="R12">R12: --------</span>
+          <span class="register" id="SP" >SP:  --------</span>
+          <span class="register" id="LR" >LR:  --------</span>
+          <span class="register" id="PC" >PC:  --------</span>
+          <span class="register" id="PSR">PSR: --------</span>
+          <span class="register" id="MSP">MSP: --------</span>
+          <span class="register" id="PSP">PSP: --------</span>
+
+        </div>
+      </details>
+    </p>
+    <p>
+      <details id="logWrapper">
+        <details id="logLevel">
+          <summary>Logging Level - Normal</summary>
+          <form id="logLevelForm" method="dialog">
+            <label class="radio">
+              <input type="radio" name="logLevel" value="0" />Quiet - show warnings and errors only
+            </label>
+            <label class="radio">
+              <input type="radio" name="logLevel" value="1" checked />Normal - show pertinent information
+            </label>
+            <label class="radio">
+              <input type="radio" name="logLevel" value="2" />Verbose - show additional information
+            </label>
+            <label class="radio">
+              <input type="radio" name="logLevel" value="3" />Debug - show low-level troubleshooting information
+            </label>
+          </form>
+        </details>
+        <summary>Log</summary>
+        <div id="log" class="log"></div>
+      </details>
+    </p>
     <dialog id="mcuDialog">
       <form id="mcuForm" method="dialog">
         <table>

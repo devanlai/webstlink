@@ -21,7 +21,17 @@ export default class Dbg {
 
     _msg(msg, level, cls = null) {
         if ((this._verbose >= level)) {
-            console.log(msg);
+            if (cls == "error") {
+                console.error(msg);
+            } else if (cls == "warning") {
+                console.warn(msg);
+            } else if (cls == "debug") {
+                console.debug(msg);
+            } else if (cls == "info") {
+                console.info(msg);
+            } else {
+                console.log(msg);
+            }
             if (this._log !== null) {
                 let info = document.createElement("div");
                 info.textContent = msg;
