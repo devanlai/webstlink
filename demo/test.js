@@ -22,6 +22,77 @@ function fetchResource(url) {
     });
 }
 
+async function pick_sram_variant(mcu_list) {
+    // Display a dialog with the MCU variants for the user to pick
+    let dialog = document.querySelector("#mcuDialog");
+    let tbody = dialog.querySelector("tbody");
+
+    // Remove old entries
+    for (let row of tbody.querySelectorAll("tr")) {
+        tbody.removeChild(row);
+    }
+
+    const columns = [
+        ["type", ""],
+        ["freq", "MHz"],
+        ["flash_size", "KiB"],
+        ["sram_size", "KiB"],
+        ["eeprom_size", "KiB"],
+    ];
+
+    let index = 0;
+    for (let mcu of mcu_list) {
+        let tr = document.createElement("tr");
+        for (let [key, suffix] of columns) {
+            let td = document.createElement("td");
+            if (key == "type") {
+                let label = document.createElement("label");
+                let input = document.createElement("input");
+                let text = document.createTextNode(mcu[key] + suffix);
+
+                label.appendChild(input);
+                label.appendChild(text);
+                input.type = "radio";
+                input.name = "mcuIndex";
+                input.value = index++;
+                input.required = true;
+
+                td.appendChild(label);
+            } else {
+                td.textContent = mcu[key] + suffix;
+            }
+            tr.appendChild(td);
+        }
+        tbody.appendChild(tr);
+    }
+
+    let submit_promise = new Promise(function (resolve, reject) {
+        function on_submit(evt) {
+            dialog.removeEventListener('cancel', on_cancel);
+            resolve(evt.target.elements["mcuIndex"].value);
+        }
+
+        function on_cancel() {
+            dialog.removeEventListener('submit', on_submit);
+            reject();
+        }
+
+        dialog.addEventListener('cancel', on_cancel, { once: true});
+        dialog.addEventListener('submit', on_submit, { once: true});
+    });
+
+    dialog.showModal();
+
+    // Wait for the user's selection and return it, otherwise
+    // return null if they canceled
+    try {
+        let index = await submit_promise;
+        return mcu_list[index];
+    } catch (e) {
+        return null;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', event => {
     let connectButton = document.querySelector("#connect");
     let log = document.querySelector("#log");
@@ -47,7 +118,7 @@ document.addEventListener('DOMContentLoaded', event => {
                     await stlink.attach_stlink(device, logger);
                     window.stlink = stlink;
                     window.probe = stlink._stlink;
-                    await stlink.detect_cpu([]);
+                    await stlink.detect_cpu([], pick_sram_variant);
                 } catch (err) {
                     logger.error(err);
                 }

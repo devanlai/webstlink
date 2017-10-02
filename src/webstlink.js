@@ -138,30 +138,44 @@ export default class WebStlink {
         this._mcus = cpus;
     }
 
-    find_sram_eeprom_size() {
+    async find_sram_eeprom_size(pick_cpu = null) {
         // if is found more MCUS, then SRAM and EEPROM size
         // will be used the smallest of all (worst case)
         let sram_sizes = this._mcus.map(mcu => mcu.sram_size);
         let eeprom_sizes = this._mcus.map(mcu => mcu.eeprom_size);
         this._sram_size = Math.min.apply(null, sram_sizes);
         this._eeprom_size = Math.min.apply(null, eeprom_sizes);
-        this._dbg.info(`SRAM:   ${this._sram_size}KB`)
-        if (this._eeprom_size > 0) {
-            this._dbg.info(`EEPROM: ${this._eeprom_size}KB`);
-        }
         if (this._mcus.length > 1) {
             let diff = false;
             if (this._sram_size != Math.max.apply(null, sram_sizes)) {
                 diff = true;
-                this._dbg.warning("Detected CPUs have different SRAM sizes.");
+                if (pick_cpu === null) {
+                    this._dbg.warning("Detected CPU family has multiple SRAM sizes");
+                }
             }
             if (this._eeprom_size != Math.max.apply(null, eeprom_sizes)) {
                 diff = true;
-                this._dbg.warning("Detected CPUs have different EEPROM sizes.");
+                if (pick_cpu === null) {
+                    this._dbg.warning("Detected CPU family has multiple EEPROM sizes.");
+                }
             }
             if (diff) {
-                this._dbg.warning("Is recommended to select certain CPU with --cpu {cputype}. Now is used the smallest memory size.");
+                let mcu = null;
+                if (pick_cpu) {
+                    mcu = await pick_cpu(this._mcus);
+                }
+                if (mcu) {
+                    this._sram_size = mcu.sram_size;
+                    this._eeprom_size = mcu.eeprom_size;
+                } else {
+                    this._dbg.warning("Automatically choosing the MCU variant with the smallest flash and eeprom");
+                }
             }
+        }
+
+        this._dbg.info(`SRAM:   ${this._sram_size}KB`)
+        if (this._eeprom_size > 0) {
+            this._dbg.info(`EEPROM: ${this._eeprom_size}KB`);
         }
     }
 
@@ -178,7 +192,7 @@ export default class WebStlink {
         }
     }
 
-    async detect_cpu(expected_cpus) {
+    async detect_cpu(expected_cpus, pick_cpu = null) {
         this._dbg.info(`SUPPLY: ${this._stlink.target_voltage.toFixed(2)}V`);
         this._dbg.verbose("COREID: " + H32(this._stlink.coreid));
         if (this._stlink.coreid == 0) {
@@ -194,7 +208,7 @@ export default class WebStlink {
         }
         this._dbg.info("MCU:    " + this._mcus.map(mcu => mcu.type).join("/"));
         this._dbg.info(`FLASH:  ${this._flash_size}KB`);
-        this.find_sram_eeprom_size();
+        await this.find_sram_eeprom_size(pick_cpu);
         this.load_driver();
     }
 
