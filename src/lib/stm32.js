@@ -113,7 +113,7 @@ class Stm32 {
         }
         if (total < size) {
             let read_size = (size - total);
-            let chunk = await this._stlink.get_mem8((addr + chunk.length), read_size);
+            let chunk = await this._stlink.get_mem8(total, read_size);
             total += chunk.byteLength;
             chunks.push(chunk);
         }
@@ -122,7 +122,7 @@ class Stm32 {
         let data = new Uint8Array(total);
         let i = 0;
         for (let chunk of chunks) {
-            for (let b of Uint8Array.from(chunk.buffer)) {
+            for (let b of new Uint8Array(chunk.buffer)) {
                 data[i++] = b;
             }
         }
