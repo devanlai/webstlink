@@ -66,7 +66,7 @@ class Stm32 {
         if (index != -1) {
             return this._stlink.get_reg(index);
         }
-        throw new Exception("Wrong register name");
+        throw new Exception(`Wrong register name ${reg}`);
     }
 
     set_reg(reg, value) {

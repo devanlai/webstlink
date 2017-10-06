@@ -171,53 +171,7 @@ document.addEventListener('DOMContentLoaded', event => {
 
     let log = document.querySelector("#log");
     let logger = new libstlink.Logger(1, log);
-    
-    let connectButton = document.querySelector("#connect");
-    
-    let readRegistersButton = document.querySelector("#readRegisters");
-    let runHaltButton = document.querySelector("#runHalt");
-    let stepButton = document.querySelector("#step");
-    let resetButton = document.querySelector("#reset");
-    let debugButton = document.querySelector("#debug");
 
-    debugButton.addEventListener('click', async function() {
-        if (debugButton.textContent.includes("Enable")) {
-            await stlink._driver.core_run();
-        } else {
-            await stlink._driver.core_nodebug();
-        }
-        await stlink.get_cpu_status();
-    });
-    
-    runHaltButton.addEventListener('click', async function() {
-        if (stlink !== null) {
-            if (stlink.last_cpu_status.halted) {
-                await stlink._driver.core_run();
-            } else {
-                await stlink._driver.core_halt();
-            }
-            await stlink.get_cpu_status();
-        }
-    });
-
-    stepButton.addEventListener('click', async function() {
-        if (stlink !== null) {
-            await stlink._driver.core_step();
-            await stlink.get_cpu_status();
-        }
-    });
-
-    resetButton.addEventListener('click', async function() {
-        if (stlink !== null) {
-            if (stlink.last_cpu_status.halted) {
-                await stlink._driver.core_reset_halt();
-            } else {
-                await stlink._driver.core_reset();
-            }
-            await stlink.get_cpu_status();
-        }
-    });
-    
     document.querySelector("#logLevel").addEventListener('change', function(evt) {
         logger.set_verbose(evt.target.value);
         let desc = evt.target.nextSibling.textContent;
@@ -227,11 +181,46 @@ document.addEventListener('DOMContentLoaded', event => {
 
         this.querySelector("summary").textContent = "Logging Level - " + desc;
     });
-
     
+    let connectButton = document.querySelector("#connect");
+    let runHaltButton = document.querySelector("#runHalt");
+    let stepButton = document.querySelector("#step");
+    let resetButton = document.querySelector("#reset");
+    let debugButton = document.querySelector("#debug");
+    let readRegistersButton = document.querySelector("#readRegisters");
+
+    debugButton.addEventListener('click', async function() {
+        const enable = debugButton.textContent.includes("Enable");
+        if (stlink !== null && stlink.connected) {
+            await stlink.set_debug_enable(enable);
+        }
+    });
+    
+    runHaltButton.addEventListener('click', async function() {
+        if (stlink !== null && stlink.connected) {
+            if (stlink.last_cpu_status.halted) {
+                await stlink.run();
+            } else {
+                await stlink.halt();
+            }
+        }
+    });
+
+    stepButton.addEventListener('click', async function() {
+        if (stlink !== null && stlink.connected) {
+            await stlink.step();
+        }
+    });
+
+    resetButton.addEventListener('click', async function() {
+        if (stlink !== null) {
+            await stlink.reset(stlink.last_cpu_status.halted);
+        }
+    });
+
     readRegistersButton.addEventListener('click', async function(evt) {
-        if (stlink !== null) {            
-            let registers = await stlink._driver.get_reg_all();
+        if (stlink !== null && stlink.connected) {
+            let registers = await stlink.read_registers();
             update_registers(registers);
         }
     });
@@ -285,20 +274,24 @@ document.addEventListener('DOMContentLoaded', event => {
         // Detect attached target CPU
         let target = await stlink.detect_cpu([], pick_sram_variant);
 
-        // Populate target info
-        let status = await stlink.get_cpu_status();
-        update_target_status(status, target);
-
-        // Update available capabilities
-        update_capabilities(status);
-
-        // Attach the status callback for future updates
-        stlink.set_cpu_status_callback(status => {
+        // Attach UI callbacks for whenever the CPU state is inspected
+        stlink.add_callback('inspect', status => {
             // Update display
-            update_target_status(status, target);
+            update_target_status(status, null);
             // Update buttons
             update_capabilities(status);
         });
+
+        stlink.add_callback('halted', async () => {
+            if (document.getElementById("autoReadRegisters").checked) {
+                let registers = await stlink.read_registers();
+                update_registers(registers);
+            }
+        });
+
+        // Update the UI with detected target info and debug state
+        let status = await stlink.inspect_cpu();
+        update_target_status(status, target);
     }
 
     function on_disconnect() {

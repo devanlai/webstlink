@@ -9,6 +9,7 @@
  */
 
 import * as libstlink from './lib/package.js';
+import Mutex from './mutex.js';
 import {
     hex_word as H32,
     hex_string
@@ -23,69 +24,111 @@ function H24(v) {
 
 export default class WebStlink {
     constructor(dbg = null) {
-        this._start_time = Date.now();
         this._stlink = null;
         this._driver = null;
         this._dbg = dbg;
         this._mcu = null;
+        this._mutex = new Mutex;
+        this._callbacks = {
+            inspect: [],
+            halted: [],
+            resumed: [],
+        }
+    }
+
+    add_callback(name, handler) {
+        if (this._callbacks[name] === undefined) {
+            throw new Error(`No callback event type named ${name}`);
+        }
+
+        if (!(handler instanceof Function)) {
+            throw new Error("Callback handler must be callable");
+        }
+
+        this._callbacks[name].push(handler);
+    }
+
+    _dispatch_callback(name, ...args) {
+        for (let callback of this._callbacks[name]) {
+            callback.apply(undefined, args);
+        }
     }
 
     async attach(device, device_dbg = null) {
-        let connector = new libstlink.usb.Connector(device, device_dbg);
-        let stlink = new libstlink.Stlinkv2(connector, this._dbg);
+        await this._mutex.lock();
         try {
-            await connector.connect();
+            let connector = new libstlink.usb.Connector(device, device_dbg);
+            let stlink = new libstlink.Stlinkv2(connector, this._dbg);
             try {
-                await stlink.init();
+                await connector.connect();
+                try {
+                    await stlink.init();
+                } catch (e) {
+                    try {
+                        await stlink.clean_exit();
+                    } catch (exit_err) {
+                        if (this._dbg) {
+                            this._dbg.warning("Error while attempting to exit cleanly: " + exit_err);
+                        }
+                    } finally {
+                        throw e;
+                    }
+                }
             } catch (e) {
                 try {
-                    await stlink.clean_exit();
-                } catch (exit_err) {
+                    await connector.disconnect();
+                } catch (disconnect_err) {
                     if (this._dbg) {
-                        this._dbg.warning("Error while attempting to exit cleanly: " + exit_err);
+                        this._dbg.warning("Error while attempting to disconnect: " + disconnect_err);
                     }
                 } finally {
                     throw e;
                 }
             }
-        } catch (e) {
-            try {
-                await connector.disconnect();
-            } catch (disconnect_err) {
-                if (this._dbg) {
-                    this._dbg.warning("Error while attempting to disconnect: " + disconnect_err);
-                }
-            } finally {
-                throw e;
-            }
-        }
 
-        this._stlink = stlink;
-        this._dbg.info("DEVICE: ST-Link/" + this._stlink.ver_str);
+            this._stlink = stlink;
+            this._dbg.info("DEVICE: ST-Link/" + this._stlink.ver_str);
+        } finally {
+            this._mutex.unlock();
+        }
     }
 
     async detach() {
-        if (this._stlink !== null) {
-            try {
-                await this._stlink.clean_exit();
-            } catch (exit_err) {
-                if (this._dbg) {
-                    this._dbg.warning("Error while attempting to exit cleanly: " + exit_err);
-                }
-            }
-
-            if (this._stlink._connector !== null) {
+        try {
+            if (this._stlink !== null) {
                 try {
-                    await this._stlink._connector.disconnect();
-                } catch (disconnect_err) {
+                    await this._stlink.clean_exit();
+                } catch (exit_err) {
                     if (this._dbg) {
-                        this._dbg.warning("Error while attempting to disconnect: " + disconnect_err);
+                        this._dbg.warning("Error while attempting to exit cleanly: " + exit_err);
                     }
                 }
-            }
 
-            this._stlink = null;
+                if (this._stlink._connector !== null) {
+                    try {
+                        await this._stlink._connector.disconnect();
+                    } catch (disconnect_err) {
+                        if (this._dbg) {
+                            this._dbg.warning("Error while attempting to disconnect: " + disconnect_err);
+                        }
+                    }
+                }
+
+                this._stlink = null;
+            }
+        } finally {
+            this._mutex.unlock();
         }
+    }
+
+    get connected() {
+        if (this._stlink !== null) {
+            if (this._stlink._connector !== null) {
+                // TODO:
+                return true;
+            }
+        }
+        return false;
     }
 
     async find_mcus_by_core() {
@@ -231,55 +274,136 @@ export default class WebStlink {
         if (this._stlink.coreid == 0) {
             throw new libstlink.exceptions.Exception("Not connected to CPU");
         }
-        await this.find_mcus_by_core();
-        this._dbg.info("CORE:   " + this._mcus_by_core.core);
-        await this.find_mcus_by_devid();
-        await this.find_mcus_by_flash_size();
-        if (expected_cpus.count > 0) {
-            // filter detected MCUs by selected MCU type
-            this.filter_detected_cpu(expected_cpus);
-        }
-        this._dbg.info("MCU:    " + this._mcus.map(mcu => mcu.type).join("/"));
-        this._dbg.info(`FLASH:  ${this._flash_size}KB`);
-        await this.find_sram_eeprom_size(pick_cpu);
-        this.load_driver();
-        this._last_cpu_status = null;
+        await this._mutex.lock();
+        try {
+            await this.find_mcus_by_core();
+            this._dbg.info("CORE:   " + this._mcus_by_core.core);
+            await this.find_mcus_by_devid();
+            await this.find_mcus_by_flash_size();
+            if (expected_cpus.count > 0) {
+                // filter detected MCUs by selected MCU type
+                this.filter_detected_cpu(expected_cpus);
+            }
+            this._dbg.info("MCU:    " + this._mcus.map(mcu => mcu.type).join("/"));
+            this._dbg.info(`FLASH:  ${this._flash_size}KB`);
+            await this.find_sram_eeprom_size(pick_cpu);
+            this.load_driver();
+            this._last_cpu_status = null;
 
-        const info = {
-            part_no: this._mcus_by_core.part_no,
-            core: this._mcus_by_core.core,
-            dev_id: this._mcus_by_devid.dev_id,
-            type: this._mcu.type,
-            flash_size: this._flash_size,
-            sram_size: this._sram_size,
-            eeprom_size: this._eeprom_size,
-            freq: this._mcu.freq,
+            const info = {
+                part_no: this._mcus_by_core.part_no,
+                core: this._mcus_by_core.core,
+                dev_id: this._mcus_by_devid.dev_id,
+                type: this._mcu.type,
+                flash_size: this._flash_size,
+                sram_size: this._sram_size,
+                eeprom_size: this._eeprom_size,
+                freq: this._mcu.freq,
+            }
+            return info;
+        } finally {
+            this._mutex.unlock();
         }
-        
-        return info;
     }
 
-    set_cpu_status_callback(callback) {
-        this._status_callback = callback;
-    }
-
-    async get_cpu_status() {
+    async _unsafe_inspect_cpu() {
         let dhcsr = await this._driver.core_status();
         let status = {
             halted: (dhcsr & libstlink.drivers.Stm32.DHCSR_STATUS_HALT_BIT) != 0,
             debug:  (dhcsr & libstlink.drivers.Stm32.DHCSR_DEBUGEN_BIT) != 0,
         }
 
+        let prev_status = this._last_cpu_status;
         this._last_cpu_status = status;
 
-        if (this._status_callback) {
-            this._status_callback(status);
+        this._dispatch_callback('inspect', status);
+
+        if ((prev_status === null) || (prev_status.halted != status.halted)) {
+            this._dispatch_callback(status.halted ? 'halted' : 'resumed');
         }
         
         return status;
     }
 
+    async inspect_cpu() {
+        await this._mutex.lock();
+        try {
+            return this._unsafe_inspect_cpu();
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
     get last_cpu_status() {
         return this._last_cpu_status;
+    }
+
+    async set_debug_enable(enabled) {
+        await this._mutex.lock();
+        try {
+            if (enabled) {
+                await this._driver.core_run();
+            } else {
+                await this._driver.core_nodebug();
+            }
+            await this._unsafe_inspect_cpu();
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async step() {
+        await this._mutex.lock();
+        try {
+            await this._driver.core_step();
+            await this._unsafe_inspect_cpu();
+            this._dispatch_callback('halted');
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async halt() {
+        await this._mutex.lock();
+        try {
+            await this._driver.core_halt();
+            await this._unsafe_inspect_cpu();
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async run() {
+        await this._mutex.lock();
+        try {
+            await this._driver.core_run();
+            await this._unsafe_inspect_cpu();
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async reset(halt) {
+        await this._mutex.lock();
+        try {
+            if (halt) {
+                await this._driver.core_halt();
+                this._dispatch_callback('halted');
+            } else {
+                await this._driver.core_reset();
+            }
+            await this._unsafe_inspect_cpu();
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async read_registers() {
+        await this._mutex.lock();
+        try {
+            return await this._driver.get_reg_all();
+        } finally {
+            this._mutex.unlock();
+        }
     }
 };
