@@ -94,6 +94,7 @@ export default class WebStlink {
     }
 
     async detach() {
+        this._mutex.lock();
         try {
             if (this._stlink !== null) {
                 try {
