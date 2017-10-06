@@ -4,6 +4,12 @@ webstlink is a port of [pystlink](https://github.com/pavelrevak/pystlink), using
 
 Check out the live demo [online](https://devanlai.github.io/webstlink/demo/)
 
+Tested features
+---------------
+* Reading registers
+* Reading memory
+* Halt/step/run/reset
+
 Dependencies
 ------------
 webstlink depends on [WebUSB](https://caniuse.com/#feat=webusb) and many ES6 features.
