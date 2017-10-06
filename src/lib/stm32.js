@@ -45,6 +45,7 @@ class Stm32 {
         this._stlink = stlink;
         this._dbg = dbg;
         this.FLASH_START = FLASH_START;
+        this.SRAM_START = SRAM_START;
     }
 
     is_reg(reg) {

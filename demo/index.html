@@ -105,7 +105,18 @@
     </p>
     <p>
       <details id="memoryDisplay">
-        <summary>Memory</summary>
+        <summary>Memory <button id="readMemory" disabled>Read now</button></summary>
+        <label>
+          Read address (hex):
+          <input type="text" id="memoryReadAddress" title="Memory address to read from (hex)" size="10" pattern="0x[A-Fa-f0-9]+"/>
+        </label>
+        <label>
+          Size (decimal):
+          <input type="number" id="memoryReadSize" title="Number of bytes to read (decimal)" min="1" value="4" />
+        </label>
+        <br/>
+        <textarea id="memoryContents" readonly></textarea>
+        <input type="checkbox" id="autoReadMemory">Re-read memory on halt</input>
       </details>
     </p>
     <p>

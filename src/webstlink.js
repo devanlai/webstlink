@@ -297,6 +297,8 @@ export default class WebStlink {
                 type: this._mcu.type,
                 flash_size: this._flash_size,
                 sram_size: this._sram_size,
+                flash_start: this._driver.FLASH_START,
+                sram_start: this._driver.SRAM_START,
                 eeprom_size: this._eeprom_size,
                 freq: this._mcu.freq,
             }
@@ -402,6 +404,15 @@ export default class WebStlink {
         await this._mutex.lock();
         try {
             return await this._driver.get_reg_all();
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async read_memory(addr, size) {
+        await this._mutex.lock();
+        try {
+            return await this._driver.get_mem(addr, size);
         } finally {
             this._mutex.unlock();
         }

@@ -1,5 +1,6 @@
 import * as libstlink from '../src/lib/package.js';
 import WebStlink from '../src/webstlink.js'
+import { hex_word, hex_octet_array } from '../src/lib/util.js';
 
 function fetchResource(url) {
     return new Promise(function(resolve, reject) {
@@ -91,7 +92,7 @@ async function pick_sram_variant(mcu_list) {
     }
 }
 
-function update_registers(registers) {
+function update_registers(registers, explicit = false) {
     for (let [name, value] of registers) {
         let span = document.getElementById(name);
         let text = (name + ":").padEnd(5);
@@ -105,6 +106,11 @@ function update_registers(registers) {
         }
         
         span.textContent = text;
+    }
+
+    if (explicit) {
+        let registerDetails = document.getElementById("registerDisplay");
+        registerDetails.open = true;
     }
 }
 
@@ -188,6 +194,7 @@ document.addEventListener('DOMContentLoaded', event => {
     let resetButton = document.querySelector("#reset");
     let debugButton = document.querySelector("#debug");
     let readRegistersButton = document.querySelector("#readRegisters");
+    let readMemoryButton = document.querySelector("#readMemory");
 
     debugButton.addEventListener('click', async function() {
         const enable = debugButton.textContent.includes("Enable");
@@ -221,8 +228,32 @@ document.addEventListener('DOMContentLoaded', event => {
     readRegistersButton.addEventListener('click', async function(evt) {
         if (stlink !== null && stlink.connected) {
             let registers = await stlink.read_registers();
-            update_registers(registers);
+            update_registers(registers, true);
         }
+    });
+
+    async function read_and_display_memory(explicit = false) {
+        if (stlink !== null && stlink.connected) {
+            let addr_field = document.getElementById("memoryReadAddress");
+            let size_field = document.getElementById("memoryReadSize");
+            try {
+                var addr = parseInt(addr_field.value, 16);
+                var size = parseInt(size_field.value, 10);
+            } catch (error) {
+                return;
+            }
+            let memory = await stlink.read_memory(addr, size);
+            let memoryContents = document.getElementById("memoryContents");
+            memoryContents.textContent = hex_octet_array(memory).join(" ");
+            if (explicit) {
+                let memoryDetails = document.getElementById("memoryDisplay");
+                memoryDetails.open = true;
+            }
+        }
+    }
+
+    readMemoryButton.addEventListener('click', function (evt) {
+        return read_and_display_memory(true);
     });
 
     function update_capabilities(status) {
@@ -231,10 +262,12 @@ document.addEventListener('DOMContentLoaded', event => {
             if (status.halted) {
                 runHaltButton.textContent = "Run";
                 readRegistersButton.disabled = false;
+                readMemoryButton.disabled = false;
                 stepButton.disabled = false;
             } else {
                 runHaltButton.textContent = "Halt";
                 readRegistersButton.disabled = true;
+                readMemoryButton.disabled = true;
                 stepButton.disabled = true;
             }
             runHaltButton.disabled = false;
@@ -245,6 +278,7 @@ document.addEventListener('DOMContentLoaded', event => {
             resetButton.disabled = true;
             stepButton.disabled = true;
             readRegistersButton.disabled = true;
+            readMemoryButton.disabled = true;
         }
     }
 
@@ -287,11 +321,17 @@ document.addEventListener('DOMContentLoaded', event => {
                 let registers = await stlink.read_registers();
                 update_registers(registers);
             }
+            if (document.getElementById("autoReadMemory").checked) {
+                await read_and_display_memory(false);
+            }
         });
 
         // Update the UI with detected target info and debug state
         let status = await stlink.inspect_cpu();
         update_target_status(status, target);
+
+        // Set the read memory address to the SRAM start
+        document.getElementById("memoryReadAddress").value = "0x" + hex_word(target.sram_start);
     }
 
     function on_disconnect() {
@@ -300,6 +340,7 @@ document.addEventListener('DOMContentLoaded', event => {
         debugButton.disabled = true;
 
         readRegistersButton.disabled = true;
+        readMemoryButton.disabled = true;
         runHaltButton.disabled = true;
         stepButton.disabled = true;
         resetButton.disabled = true;
