@@ -84,7 +84,7 @@ class Flash {
         await this.unlock();
     }
 
-async unlock() {
+    async unlock() {
         await this._driver.core_reset_halt();
         // programming locked
         let cr_reg = await this._stlink.get_debugreg32(this.FLASH_CR_REG);

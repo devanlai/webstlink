@@ -51,4 +51,4 @@ export default class Mutex {
         this.destroyed = true;
         this.queue = [];
     }
-};
+}

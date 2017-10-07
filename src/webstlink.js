@@ -33,7 +33,7 @@ export default class WebStlink {
             inspect: [],
             halted: [],
             resumed: [],
-        }
+        };
     }
 
     add_callback(name, handler) {
@@ -250,7 +250,7 @@ export default class WebStlink {
             this._mcu = this._mcus[0];
         }
 
-        this._dbg.info(`SRAM:   ${this._sram_size}KB`)
+        this._dbg.info(`SRAM:   ${this._sram_size}KB`);
         if (this._eeprom_size > 0) {
             this._dbg.info(`EEPROM: ${this._eeprom_size}KB`);
         }
@@ -302,7 +302,7 @@ export default class WebStlink {
                 sram_start: this._driver.SRAM_START,
                 eeprom_size: this._eeprom_size,
                 freq: this._mcu.freq,
-            }
+            };
             return info;
         } finally {
             this._mutex.unlock();
@@ -314,7 +314,7 @@ export default class WebStlink {
         let status = {
             halted: (dhcsr & libstlink.drivers.Stm32.DHCSR_STATUS_HALT_BIT) != 0,
             debug:  (dhcsr & libstlink.drivers.Stm32.DHCSR_DEBUGEN_BIT) != 0,
-        }
+        };
 
         let prev_status = this._last_cpu_status;
         this._last_cpu_status = status;
@@ -418,4 +418,4 @@ export default class WebStlink {
             this._mutex.unlock();
         }
     }
-};
+}

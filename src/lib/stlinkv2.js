@@ -357,5 +357,5 @@ export default class Stlink {
         view.setUint32(6, data.length, true);
         return this._connector.xfer(cmd, {"data": data});
     }
-};
+}
 

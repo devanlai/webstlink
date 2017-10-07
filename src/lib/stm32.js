@@ -9,7 +9,10 @@
  */
 
 import { Exception, Warning, UsbError } from './stlinkex.js';
-import { hex_word as H32 } from './util.js';
+import {
+    hex_word as H32,
+    hex_octet as H8
+} from './util.js';
 
 const REGISTERS = [
     'R0', 'R1', 'R2', 'R3', 'R4', 'R5', 'R6', 'R7', 'R8', 'R9',
@@ -224,11 +227,11 @@ class Stm32 {
     }
 
     async flash_write(addr, data, erase = false, verify = false, erase_sizes = null) {
-        let addr_str = (addr !== NULL) ? `0x{H32(addr)}` : 'None';
+        let addr_str = (addr !== null) ? `0x{H32(addr)}` : 'None';
         this._dbg.debug(`Stm32.flash_write(${addr_str}, [data:${data.length}Bytes], erase=${erase}, verify=${verify}, erase_sizes=${erase_sizes})`);
         throw new Exception("Programing FLASH is not implemented for this MCU");
     }
-};
+}
 
 Stm32.SRAM_START = SRAM_START;
 Stm32.FLASH_START = FLASH_START;

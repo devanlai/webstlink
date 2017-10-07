@@ -8,6 +8,8 @@
  *
  */
 
+/* eslint no-console: "off" */
+
 export default class Dbg {
     constructor(verbose, log = null) {
         this._verbose = verbose;
@@ -38,7 +40,7 @@ export default class Dbg {
                 if (cls !== null) {
                     info.className = cls;
                 }
-                log.appendChild(info);
+                this._log.appendChild(info);
             }
         }
     }
@@ -121,7 +123,7 @@ export default class Dbg {
                 this._progress_bar.value = 100;
             }
 
-            let elapsed = (time.time() - this._start_time) / 1000.0
+            let elapsed = (Date.now() - this._start_time) / 1000.0;
             this.info(`${this._bargraph_msg}: done in ${elapsed}s`);
             this._bargraph_msg = null;
             this._progress_bar = null;
@@ -131,4 +133,4 @@ export default class Dbg {
     set_verbose(verbose) {
         this._verbose = verbose;
     }
-};
+}

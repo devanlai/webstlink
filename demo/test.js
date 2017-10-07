@@ -1,5 +1,5 @@
 import * as libstlink from '../src/lib/package.js';
-import WebStlink from '../src/webstlink.js'
+import WebStlink from '../src/webstlink.js';
 import { hex_word, hex_octet_array } from '../src/lib/util.js';
 
 function fetchResource(url) {
@@ -39,7 +39,6 @@ async function pick_sram_variant(mcu_list) {
         ["eeprom_size", "KiB"],
     ];
 
-    let index = 0;
     for (let mcu of mcu_list) {
         let tr = document.createElement("tr");
         for (let [key, suffix] of columns) {
@@ -136,9 +135,8 @@ function update_debugger_info(stlink, device) {
 
 function update_target_status(status, target = null) {
     let targetInfo = document.getElementById("targetInfo");
-    let summary = targetInfo.querySelector("summary");
-
     let targetStatus = document.getElementById("targetStatus");
+
     if (target !== null) {
         let targetType = document.getElementById("targetType");
         targetType.textContent = "- " + target.type + " -";
@@ -346,7 +344,7 @@ document.addEventListener('DOMContentLoaded', event => {
         resetButton.disabled = true;
 
         let probeInfo = document.getElementById("probeInfo");
-        let summary = document.querySelector("summary");
+        let summary = probeInfo.querySelector("summary");
         summary.textContent = `Debugger - Disconnected`;
 
         document.getElementById("productName").textContent = "";
@@ -374,7 +372,7 @@ document.addEventListener('DOMContentLoaded', event => {
                 filters: libstlink.usb.filters
             });
             logger.clear();
-            let next_stlink = new WebStlink(logger)
+            let next_stlink = new WebStlink(logger);
             await next_stlink.attach(device, logger);
             stlink = next_stlink;
             curr_device = device;
