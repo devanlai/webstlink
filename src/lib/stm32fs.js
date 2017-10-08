@@ -41,7 +41,7 @@ const FLASH_SR_BUSY_BIT = 0x00010000;
 // R4: STM32_FLASH_SR
 // R5: FLASH_SR_BUSY_BIT
 
-const FLASH_WRITER_F4_CODE_X8 = [
+const FLASH_WRITER_F4_CODE_X8 = new Uint8Array([
     // write:
     0x03, 0x78,  // 0x7803    // ldrh r3, [r0]
     0x0b, 0x70,  // 0x700b    // strh r3, [r1]
@@ -58,9 +58,9 @@ const FLASH_WRITER_F4_CODE_X8 = [
     0xf3, 0xd1,  // 0xd1f3    // bne <write>
     // exit:
     0x00, 0xbe,  // 0xbe00    // bkpt 0x00
-];
+]);
 
-const FLASH_WRITER_F4_CODE_X16 = [
+const FLASH_WRITER_F4_CODE_X16 = new Uint8Array([
     // write:
     0x03, 0x88,  // 0x8803    // ldrh r3, [r0]
     0x0b, 0x80,  // 0x800b    // strh r3, [r1]
@@ -77,9 +77,9 @@ const FLASH_WRITER_F4_CODE_X16 = [
     0xf3, 0xd1,  // 0xd1f3    // bne <write>
     // exit:
     0x00, 0xbe,  // 0xbe00    // bkpt 0x00
-];
+]);
 
-const FLASH_WRITER_F4_CODE_X32 = [
+const FLASH_WRITER_F4_CODE_X32 = new Uint8Array([
     // write:
     0x03, 0x68,  // 0x6803    // ldr r3, [r0]
     0x0b, 0x60,  // 0x600b    // str r3, [r1]
@@ -96,7 +96,7 @@ const FLASH_WRITER_F4_CODE_X32 = [
     0xf3, 0xd1,  // 0xd1f3    // bne <write>
     // exit:
     0x00, 0xbe,  // 0xbe00    // bkpt 0x00
-];
+]);
 
 const VOLTAGE_DEPENDEND_PARAMS = [
     {
@@ -285,9 +285,8 @@ class Stm32FS extends Stm32 {
     }
 
     async flash_write(addr, data, { erase = false, verify = false, erase_sizes = null }) {
-        let addr_str = (addr !== null) ? `0x{H32(addr)}` : 'None';
+        let addr_str = (addr !== null) ? `0x${H32(addr)}` : 'None';
         this._dbg.debug(`Stm32FS.flash_write(${addr_str}, [data:${data.length}Bytes], erase=${erase}, verify=${verify}, erase_sizes=${erase_sizes})`);
-        var block, flash;
         if (addr === null) {
             addr = this.FLASH_START;
         }
@@ -296,9 +295,12 @@ class Stm32FS extends Stm32 {
         }
         // align data
         if (data.length % 4) {
-            data.extend(([255] * (4 - (data.length % 4))));
+            let padded_data = new Uint8Array(data.length + (4 - (data.length % 4)));
+            data.forEach((b, i) => padded_data[i] = b);
+            padded_data.fill(0xff, data.length);
+            data = padded_data;
         }
-        flash = new Flash(this, this._stlink, this._dbg);
+        let flash = new Flash(this, this._stlink, this._dbg);
         await flash.init();
         if (erase) {
             if (erase_sizes) {
@@ -312,13 +314,13 @@ class Stm32FS extends Stm32 {
             "value_max": (addr + data.length)
         });
         await flash.init_write(Stm32FS.SRAM_START);
-        while (data) {
+        while (data.length > 0) {
             this._dbg.bargraph_update({"value": addr});
-            block = data.slice(0, this._stlink.STLINK_MAXIMUM_TRANSFER_SIZE);
+            let block = data.slice(0, this._stlink.STLINK_MAXIMUM_TRANSFER_SIZE);
             data = data.slice(this._stlink.STLINK_MAXIMUM_TRANSFER_SIZE);
             await flash.write(addr, block);
             if (verify) {
-                let flashed_block = this._stlink.get_mem32(addr, block.length);
+                let flashed_block = await this._stlink.get_mem32(addr, block.length);
                 if (flashed_block != block) {
                     throw new Exception("Verify error at block address: 0x" + H32(addr));
                 }
