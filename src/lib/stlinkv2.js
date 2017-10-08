@@ -286,11 +286,12 @@ export default class Stlink {
     }
 
     set_reg(reg, data) {
-        let cmd = new ArrayBuffer(6);
+        let cmd = new ArrayBuffer(7);
         let view = new DataView(cmd);
         view.setUint8(0, STLINK_DEBUG_COMMAND);
         view.setUint8(1, STLINK_DEBUG_APIV2_WRITEREG);
-        view.setUint32(2, data, true);
+        view.setUint8(2, reg);
+        view.setUint32(3, data, true);
         return this._connector.xfer(cmd, {"rx_len": 2});
     }
 
