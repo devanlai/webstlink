@@ -132,7 +132,7 @@ async function pick_sram_variant(mcu_list) {
 }
 
 function update_registers(registers, explicit = false) {
-    for (let [name, value] of registers) {
+    for (let [name, value] of Object.entries(registers)) {
         let span = document.getElementById(name);
         let text = (name + ":").padEnd(5);
         text += "0x" + value.toString(16).padStart(8,"0");

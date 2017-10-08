@@ -57,10 +57,9 @@ class Stm32 {
     }
 
     async get_reg_all() {
-        let registers = [];
+        let registers = {};
         for (let reg of REGISTERS) {
-            let value = await this.get_reg(reg);
-            registers.push([reg, value]);
+            registers[reg] = await this.get_reg(reg);
         }
         return registers;
     }
