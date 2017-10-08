@@ -89,7 +89,7 @@ export default class Dbg {
         if (this._log) {
             let div = document.createElement("div");
             div.className = "progress";
-            div.textContent = msg;
+            div.textContent = msg + ": ";
             this._progress_bar = document.createElement("progress");
             this._progress_bar.value = 0;
             this._progress_bar.max = 100;
@@ -118,7 +118,7 @@ export default class Dbg {
     }
 
     bargraph_done() {
-        if (this._bargaph_msg) {
+        if (this._bargraph_msg) {
             if (this._progress_bar) {
                 this._progress_bar.value = 100;
             }
