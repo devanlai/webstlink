@@ -101,7 +101,11 @@ var Connector = class StlinkUsbConnector {
                 throw result.status;
             }
         } catch (e) {
-            throw new UsbError(e, this._dev_type.outPipe);
+            if (e instanceof DOMException || e.constructor == String) {
+                throw new UsbError(e, this._dev_type.outPipe);
+            } else {
+                throw e;
+            }
         }
 
         if (result.bytesWritten != data.length) {
@@ -125,7 +129,11 @@ var Connector = class StlinkUsbConnector {
                 throw result.status;
             }
         } catch (e) {
-            throw new UsbError(e, this._dev_type.inPipe);
+            if (e instanceof DOMException || e.constructor == String) {
+                throw new UsbError(e, this._dev_type.inPipe);
+            } else {
+                throw e;
+            }
         }
 
         if (this._dbg) {
@@ -172,7 +180,7 @@ var Connector = class StlinkUsbConnector {
                     return rx;
                 }
             } catch (e) {
-                if ((e instanceof UsbError) && (retry > 0)) {
+                if ((e instanceof UsbError) && !e.fatal && (retry > 0)) {
                     this._debug("Retrying xfer after " + e);
                     retry--;
                     continue;

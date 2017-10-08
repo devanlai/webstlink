@@ -14,9 +14,15 @@ const Exception = class StlinkException extends Error {};
 const Warning = class StlinkWarning extends Error {};
 
 const UsbError = class StlinkUsbError extends Error {
-    constructor(message, address) {
+    constructor(message, address, fatal = false) {
         super(message);
+        if (message instanceof DOMException) {
+            if (message.message == "Device unavailable.") {
+                fatal = true;
+            }
+        }
         this.address = address;
+        this.fatal = fatal;
     }
 
     toString() {
