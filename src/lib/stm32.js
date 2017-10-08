@@ -170,7 +170,7 @@ class Stm32 {
     }
 
     fill_mem(addr, size, pattern) {
-        if ((pattern >= 0xff)) {
+        if (pattern > 0xff) {
             throw new Exception("Fill pattern can by 8 bit number");
         }
         this._dbg.debug(`Stm32.fill_mem(0x${H32(addr)}, 0x${H8(pattern)}d)`);
