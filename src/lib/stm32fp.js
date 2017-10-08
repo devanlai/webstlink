@@ -119,6 +119,9 @@ class Flash {
     }
 
     async erase_pages(flash_start, erase_sizes, addr, size) {
+        if (size === undefined) {
+            throw new Exception("erase size is undefined");
+        }
         let page_addr = flash_start;
         this._dbg.bargraph_start("Erasing FLASH", {"value_min": addr, "value_max": (addr + size)});
         while (true) {
@@ -137,6 +140,7 @@ class Flash {
     }
 
     async init_write(sram_offset) {
+        this._dbg.debug("Loading flash algorithm at 0x" + H32(sram_offset));
         this._flash_writer_offset = sram_offset;
         this._flash_data_offset = (sram_offset + 256);
         await this._stlink.set_mem8(this._flash_writer_offset, FLASH_WRITER_F0_CODE);
@@ -154,7 +158,9 @@ class Flash {
             return;
         }
 
+        this._dbg.debug(`Flashing ${block.length} bytes at 0x${H32(addr)}`);
         try {
+            this._dbg.debug("Loading working buffer at 0x" + H32(this._flash_data_offset));
             await this._stlink.set_mem32(this._flash_data_offset, block);
             await this._driver.set_reg("PC", this._flash_writer_offset);
             await this._driver.set_reg("R0", this._flash_data_offset);
@@ -198,6 +204,10 @@ class Flash {
         const end_time = Date.now() + (wait_time * 1000);
         do {
             let dhcsr = await this._stlink.get_debugreg32(Stm32.DHCSR_REG);
+            this._dbg.debug("DHCSR = 0x" + H32(dhcsr));
+            if (dhcsr & Stm32.DHCSR_STATUS_LOCKUP_BIT) {
+                throw new Exception("Flash algorithm crashed");
+            }
             if (dhcsr & Stm32.DHCSR_STATUS_HALT_BIT) {
                 break;
             }
@@ -257,6 +267,7 @@ class Stm32FP extends Stm32 {
             data = data.slice(this._stlink.STLINK_MAXIMUM_TRANSFER_SIZE);
             await flash.write(addr, block);
             if (verify) {
+                this._dbg.debug(`Verifying ${block.length} bytes`);
                 let flashed_block = await this._stlink.get_mem32(addr, block.length);
                 if (flashed_block != block) {
                     throw new Exception("Verify error at block address: 0x" + H32(addr));
