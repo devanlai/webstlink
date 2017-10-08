@@ -311,6 +311,12 @@ export default class WebStlink {
 
     async _unsafe_inspect_cpu() {
         let dhcsr = await this._driver.core_status();
+        let lockup = (dhcsr & libstlink.drivers.Stm32.DHCSR_STATUS_LOCKUP_BIT) != 0;
+        if (lockup) {
+            this._dbg.verbose("Clearing lockup");
+            await this._driver.core_halt();
+            dhcsr = await this._driver.core_status();
+        }
         let status = {
             halted: (dhcsr & libstlink.drivers.Stm32.DHCSR_STATUS_HALT_BIT) != 0,
             debug:  (dhcsr & libstlink.drivers.Stm32.DHCSR_DEBUGEN_BIT) != 0,
