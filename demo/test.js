@@ -297,7 +297,7 @@ document.addEventListener('DOMContentLoaded', event => {
 
     flashButton.addEventListener('click', async function (evt) {
         if (stlink !== null && stlink.connected) {
-            let addr_field = document.getElementById("memoryReadAddress");
+            let addr_field = document.getElementById("flashWriteAddress");
             try {
                 var addr = parseInt(addr_field.value, 16);
             } catch (error) {
