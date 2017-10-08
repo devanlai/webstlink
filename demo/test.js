@@ -21,6 +21,46 @@ function fetchResource(url) {
     });
 }
 
+function read_file_as_array_buffer(file) {
+    return new Promise(function (resolve, reject) {
+        let reader = new FileReader();
+        reader.onload = function() {
+            resolve(reader.result);
+        };
+        reader.onerror = function() {
+            reject(reader.error);
+        };
+        reader.readAsArrayBuffer(file);
+    });
+}
+
+function show_error_dialog(error) {
+    let dialog = document.createElement("dialog");
+    let header = document.createElement("h1");
+    header.textContent = "Uh oh! Something went wrong.";
+    let contents = document.createElement("p");
+    contents.textContent = error.toString();
+    let button = document.createElement("button");
+    button.textContent = "Close";
+
+    button.addEventListener("click", (evt) => {
+        dialog.close();
+    });
+
+    dialog.addEventListener("close", (evt) => {
+        dialog.remove();
+    });
+
+    dialog.appendChild(header);
+    dialog.appendChild(contents);
+    dialog.appendChild(document.createElement("br"));
+    dialog.appendChild(button);
+
+    document.querySelector("body").appendChild(dialog);
+
+    dialog.showModal();
+}
+
 async function pick_sram_variant(mcu_list) {
     // Display a dialog with the MCU variants for the user to pick
     let dialog = document.querySelector("#mcuDialog");
@@ -193,6 +233,7 @@ document.addEventListener('DOMContentLoaded', event => {
     let debugButton = document.querySelector("#debug");
     let readRegistersButton = document.querySelector("#readRegisters");
     let readMemoryButton = document.querySelector("#readMemory");
+    let flashButton = document.querySelector("#flash");
 
     debugButton.addEventListener('click', async function() {
         const enable = debugButton.textContent.includes("Enable");
@@ -254,6 +295,29 @@ document.addEventListener('DOMContentLoaded', event => {
         return read_and_display_memory(true);
     });
 
+    flashButton.addEventListener('click', async function (evt) {
+        if (stlink !== null && stlink.connected) {
+            let addr_field = document.getElementById("memoryReadAddress");
+            try {
+                var addr = parseInt(addr_field.value, 16);
+            } catch (error) {
+                return;
+            }
+
+            let field = document.getElementById("flashBinaryFile");
+            if (field.files.length > 0) {
+                let file = field.files[0];
+                let data = await read_file_as_array_buffer(file);
+                try {
+                    await stlink.flash(addr, data);
+                } catch (err) {
+                    logger.error(err);
+                    show_error_dialog(err);
+                }
+            }
+        }
+    });
+
     function update_capabilities(status) {
         if (status.debug) {
             debugButton.textContent = "Disable debugging";
@@ -262,11 +326,13 @@ document.addEventListener('DOMContentLoaded', event => {
                 readRegistersButton.disabled = false;
                 readMemoryButton.disabled = false;
                 stepButton.disabled = false;
+                flashButton.disabled = false;
             } else {
                 runHaltButton.textContent = "Halt";
                 readRegistersButton.disabled = true;
                 readMemoryButton.disabled = true;
                 stepButton.disabled = true;
+                flashButton.disabled = true;
             }
             runHaltButton.disabled = false;
             resetButton.disabled = false;
@@ -277,6 +343,7 @@ document.addEventListener('DOMContentLoaded', event => {
             stepButton.disabled = true;
             readRegistersButton.disabled = true;
             readMemoryButton.disabled = true;
+            flashButton.disabled = true;
         }
     }
 
@@ -330,6 +397,9 @@ document.addEventListener('DOMContentLoaded', event => {
 
         // Set the read memory address to the SRAM start
         document.getElementById("memoryReadAddress").value = "0x" + hex_word(target.sram_start);
+
+        // Set the flash write address to the Flash start
+        document.getElementById("flashWriteAddress").value = "0x" + hex_word(target.flash_start);
     }
 
     function on_disconnect() {
@@ -342,6 +412,7 @@ document.addEventListener('DOMContentLoaded', event => {
         runHaltButton.disabled = true;
         stepButton.disabled = true;
         resetButton.disabled = true;
+        flashButton.disabled = true;
 
         let probeInfo = document.getElementById("probeInfo");
         let summary = probeInfo.querySelector("summary");

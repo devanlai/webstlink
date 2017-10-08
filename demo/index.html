@@ -51,7 +51,6 @@
   <body>
     <p>
       <button id="connect">Connect</button>
-      <button id="flash" disabled>Flash</button>
       <button id="debug" disabled>Enable Debug</button>
       <button id="runHalt" disabled>Halt</button>
       <button id="step" disabled>Step</button>
@@ -117,6 +116,20 @@
         <br/>
         <textarea id="memoryContents" readonly></textarea>
         <input type="checkbox" id="autoReadMemory">Re-read memory on halt</input>
+      </details>
+    </p>
+    <p>
+      <details id="flashDisplay">
+        <summary>Flash</summary>
+        <label>
+          Flash address (hex):
+          <input type="text" id="flashWriteAddress" title="Flash address to write to (hex)" size="10" pattern="0x[A-Fa-f0-9]+" required/>
+        </label>
+        <label>
+          Firmware binary:
+          <input type="file" id="flashBinaryFile" required/>
+        </label>
+        <button id="flash" disabled>Flash</button>
       </details>
     </p>
     <p>

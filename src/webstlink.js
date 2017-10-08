@@ -418,4 +418,32 @@ export default class WebStlink {
             this._mutex.unlock();
         }
     }
+
+    async flash(addr, data) {
+        if (data instanceof ArrayBuffer) {
+            data = new Uint8Array(data);
+        } else if (data instanceof DataView) {
+            data = new Uint8Array(data.buffer);
+        } else if (data instanceof Array) {
+            let new_data = new Uint8Array(data.length);
+            for (let i=0; i < data.length; i++) {
+                if (typeof data[i] != "number" || data[i] < 0x00 || data[i] > 0xff) {
+                    throw new libstlink.exceptions.Exception(`Datum at index ${i} is not a valid octet: ${data[i]}`);
+                }
+            }
+            data = new_data;
+        } else if (!(data instanceof Uint8Array)) {
+            throw new libstlink.exceptions.Exception(`Data of type ${typeof data} is not supported`);
+        }
+        await this._mutex.lock();
+        try {
+            await this._driver.flash_write(addr, data, {
+                erase: true,
+                verify: true,
+                erase_sizes: this._mcus_by_devid.erase_sizes
+            });
+        } finally {
+            this._mutex.unlock();
+        }
+    }
 }
