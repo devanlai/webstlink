@@ -263,13 +263,18 @@ class Stm32FP extends Stm32 {
         await flash.init_write(Stm32FP.SRAM_START);
         while (data.length > 0) {
             this._dbg.bargraph_update({"value": addr});
-            let block = data.slice(0, this._stlink.STLINK_MAXIMUM_TRANSFER_SIZE);
-            data = data.slice(this._stlink.STLINK_MAXIMUM_TRANSFER_SIZE);
+            let block = data.slice(0, this._stlink.maximum_transfer_size);
+            data = data.slice(this._stlink.maximum_transfer_size);
             await flash.write(addr, block);
             if (verify) {
                 this._dbg.debug(`Verifying ${block.length} bytes`);
-                let flashed_block = await this._stlink.get_mem32(addr, block.length);
-                if (flashed_block != block) {
+                let flashed_data = await this._stlink.get_mem32(addr, block.length);
+                let flashed_block = new Uint8Array(flashed_data.buffer);
+                let verified = false;
+                if (flashed_block.length == block.length) {
+                    verified = flashed_block.every((octet, index) => octet == block[index]);
+                }
+                if (!verified) {
                     throw new Exception("Verify error at block address: 0x" + H32(addr));
                 }
             }
