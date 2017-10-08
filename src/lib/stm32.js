@@ -117,7 +117,7 @@ class Stm32 {
         }
         if (total < size) {
             let read_size = (size - total);
-            let chunk = await this._stlink.get_mem8(total, read_size);
+            let chunk = await this._stlink.get_mem8((addr + total), read_size);
             total += chunk.byteLength;
             chunks.push(chunk);
         }
