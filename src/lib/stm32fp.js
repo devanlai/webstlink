@@ -216,7 +216,7 @@ class Flash {
 class Stm32FP extends Stm32 {
     async _flash_erase_all(bank = 0) {
         var flash;
-        flash = new Flash(this, this._stlink, this._dbg, {"bank": bank});
+        flash = new Flash(this, this._stlink, this._dbg, bank);
         await flash.init();
         await flash.erase_all();
         await flash.lock();
@@ -227,13 +227,13 @@ class Stm32FP extends Stm32 {
         await this._flash_erase_all();
     }
 
-    async _flash_write(addr, data, erase = false, verify = false, erase_sizes = null, bank = 0) {
+    async _flash_write(addr, data, { erase = false, verify = false, erase_sizes = null, bank = 0 }) {
         // align data
         var block, flash;
         if ((data.length % 4)) {
             data.extend(([255] * (4 - (data.length % 4))));
         }
-        flash = new Flash(this, this._stlink, this._dbg, {"bank": bank});
+        flash = new Flash(this, this._stlink, this._dbg, bank);
         await flash.init();
         if (erase) {
             if (erase_sizes) {
@@ -257,7 +257,7 @@ class Stm32FP extends Stm32 {
         flash.lock();
         this._dbg.bargraph_done();
     }
-    flash_write(addr, data, erase = false, verify = false, erase_sizes = null) {
+    flash_write(addr, data, { erase = false, verify = false, erase_sizes = null }) {
         let addr_str = (addr !== null) ? `0x{H32(addr)}` : 'None';
         this._dbg.debug(`Stm32FP.flash_write(${addr_str}, [data:${data.length}Bytes], erase=${erase}, verify=${verify}, erase_sizes=${erase_sizes})`);
         if (addr === null) {
@@ -267,7 +267,7 @@ class Stm32FP extends Stm32 {
                 throw new Exception("Start address is not aligned to half-word");
             }
         }
-        this._flash_write(addr, data, {"erase": erase, "verify": verify, "erase_sizes": erase_sizes});
+        this._flash_write(addr, data, arguments[2]);
     }
 }
 
@@ -277,11 +277,12 @@ const STM32FPXL_BANK_SIZE = 512 * 1024;
 class Stm32FPXL extends Stm32FP {
     async flash_erase_all() {
         this._dbg.debug("Stm32F1.flash_erase_all()");
-        await this._flash_erase_all({"bank": 0});
-        await this._flash_erase_all({"bank": 1});
+        await this._flash_erase_all(0);
+        await this._flash_erase_all(1);
     }
 
-    async flash_write(addr, data, erase = false, verify = false, erase_sizes = null) {
+    async flash_write(addr, data, { erase = false, verify = false, erase_sizes = null }) {
+        let options = arguments[2];
         let addr_str = (addr !== null) ? `0x{H32(addr)}` : 'None';
         this._dbg.debug(`Stm32F1.flash_write(${addr_str}, [data:${data.length}Bytes], erase=${erase}, verify=${verify}, erase_sizes=${erase_sizes})`);
         var addr_bank1, addr_bank2, data_bank1, data_bank2;
@@ -293,17 +294,17 @@ class Stm32FPXL extends Stm32FP {
             }
         }
         if ((addr - this.FLASH_START + data.length) <= STM32FPXL_BANK_SIZE) {
-            await this._flash_write(addr, data, {"erase": erase, "verify": verify, "erase_sizes": erase_sizes, "bank": 0});
+            await this._flash_write(addr, data, { ...options, bank: 0 });
         } else {
             if ((addr - this.FLASH_START) > STM32FPXL_BANK_SIZE) {
-                await this._flash_write(addr, data, {"erase": erase, "verify": verify, "erase_sizes": erase_sizes, "bank": 1});
+                await this._flash_write(addr, data, { ...options, bank: 1 });
             } else {
                 addr_bank1 = addr;
                 addr_bank2 = (this.FLASH_START + STM32FPXL_BANK_SIZE);
                 data_bank1 = data.slice(0, (STM32FPXL_BANK_SIZE - (addr - this.FLASH_START)));
                 data_bank2 = data.slice((STM32FPXL_BANK_SIZE - (addr - this.FLASH_START)));
-                await this._flash_write(addr_bank1, data_bank1, {"erase": erase, "verify": verify, "erase_sizes": erase_sizes, "bank": 0});
-                await this._flash_write(addr_bank2, data_bank2, {"erase": erase, "verify": verify, "erase_sizes": erase_sizes, "bank": 1});
+                await this._flash_write(addr_bank1, data_bank1, { ...options, bank: 1 });
+                await this._flash_write(addr_bank2, data_bank2, { ...options, bank: 1 });
             }
         }
     }

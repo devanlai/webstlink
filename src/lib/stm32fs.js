@@ -284,7 +284,7 @@ class Stm32FS extends Stm32 {
         await flash.lock();
     }
 
-    async flash_write(addr, data, erase = false, verify = false, erase_sizes = null) {
+    async flash_write(addr, data, { erase = false, verify = false, erase_sizes = null }) {
         let addr_str = (addr !== null) ? `0x{H32(addr)}` : 'None';
         this._dbg.debug(`Stm32FS.flash_write(${addr_str}, [data:${data.length}Bytes], erase=${erase}, verify=${verify}, erase_sizes=${erase_sizes})`);
         var block, flash;

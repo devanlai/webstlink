@@ -226,7 +226,7 @@ class Stm32 {
         throw new Exception("Erasing FLASH is not implemented for this MCU");
     }
 
-    async flash_write(addr, data, erase = false, verify = false, erase_sizes = null) {
+    async flash_write(addr, data, { erase = false, verify = false, erase_sizes = null }) {
         let addr_str = (addr !== null) ? `0x{H32(addr)}` : 'None';
         this._dbg.debug(`Stm32.flash_write(${addr_str}, [data:${data.length}Bytes], erase=${erase}, verify=${verify}, erase_sizes=${erase_sizes})`);
         throw new Exception("Programing FLASH is not implemented for this MCU");
