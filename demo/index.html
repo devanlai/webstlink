@@ -75,8 +75,7 @@
 
     <p>
       <details id="registerDisplay">
-        <summary>
-          Registers: <button id="readRegisters" disabled>Read now</button>
+        <summary>Registers: <button id="readRegisters" disabled>Read now</button>
         </summary>
         <div class="registers">
           <span class="register" id="R0" >R0:  --------</span>
@@ -99,7 +98,8 @@
           <span class="register" id="MSP">MSP: --------</span>
           <span class="register" id="PSP">PSP: --------</span>
         </div>
-        <input type="checkbox" id="autoReadRegisters">Re-read registers on halt</input>
+        <input type="checkbox" id="autoReadRegisters" checked>Re-read registers on halt</input>
+        <input type="checkbox" id="pollRegisters" disabled>Read registers when polling (nonfunctional)</input>
       </details>
     </p>
     <p>
@@ -116,6 +116,7 @@
         <br/>
         <textarea id="memoryContents" readonly></textarea>
         <input type="checkbox" id="autoReadMemory">Re-read memory on halt</input>
+        <input type="checkbox" id="pollMemory" disabled>Read memory when polling (nonfunctional)</input>
       </details>
     </p>
     <p>
@@ -133,10 +134,33 @@
       </details>
     </p>
     <p>
+      <details id="pollingDisplay">
+        <summary>Polling - Idle</summary>
+        <form id="pollingForm">
+          <label class="radio">
+            <input type="radio" name="mode" value="off" />
+            Off - never poll - only inspect the CPU after a user operation
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="on" checked />
+            Running - poll for breakpoints, hard faults, and semihosting while the target is running
+          </label>
+          <label class="radio">
+            <input type="radio" name="mode" value="always" />
+            Always - poll even while halted to check for external/watchdog resets
+          </label>
+          <label>
+            Polling Interval (ms):
+            <input type="number" name="interval" min="1" value="200" required/>
+          </label>
+        </form>
+      </details>
+    </p>
+    <p>
       <details id="logWrapper">
         <details id="logLevel">
           <summary>Logging Level - Normal</summary>
-          <form id="logLevelForm" method="dialog">
+          <form id="logLevelForm">
             <label class="radio">
               <input type="radio" name="logLevel" value="0" />Quiet - show warnings and errors only
             </label>

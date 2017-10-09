@@ -209,6 +209,11 @@ function update_target_status(status, target = null) {
     targetStatus.textContent = `${haltState}, ${debugState}`;
 }
 
+function prevent_submission(event) {
+    event.preventDefault();
+    return false;
+}
+
 document.addEventListener('DOMContentLoaded', event => {
     var stlink = null;
     var curr_device = null;
@@ -225,7 +230,89 @@ document.addEventListener('DOMContentLoaded', event => {
 
         this.querySelector("summary").textContent = "Logging Level - " + desc;
     });
-    
+
+    let pollingForm = document.getElementById("pollingForm");
+    let polling_mode = "on";
+    let polling_interval = 200;
+
+    async function poll_cpu() {
+        let summary = document.getElementById("pollingDisplay").querySelector("summary");
+
+        if (polling_mode == "off") {
+            summary.textContent = "Polling - off";
+        } else if (stlink !== null && stlink.connected && stlink.examined) {
+            let active = false;
+            let running = false;
+            let debuggable = false;
+            if (polling_mode == "always") {
+                summary.textContent = "Polling - active";
+                let status = await stlink.inspect_cpu();
+                running = !status.halted;
+                debuggable = status.debug;
+                active = true;
+            } else if (polling_mode == "on") {
+                let status = stlink.last_cpu_status;
+                if (status === null || !status.halted) {
+                    status = await stlink.inspect_cpu();
+                }
+                debuggable = status.debug;
+                if (!status.halted) {
+                    running = true;
+                    active = true;
+                }
+            }
+
+            if (active) {
+                summary.textContent = "Polling - active";
+                if (running && debuggable) {
+                    if (document.getElementById("pollRegisters").checked) {
+                        let registers = await stlink.read_registers();
+                        update_registers(registers);
+                    }
+                    if (document.getElementById("pollMemory").checked) {
+                        await read_and_display_memory(false);
+                    }
+                }
+            } else {
+                summary.textContent = "Polling - idle";
+            }
+        } else {
+            summary.textContent = "Polling - disconnected";
+        }
+    }
+
+    let polling_id = null;
+    function setup_polling(mode, interval) {
+        if (polling_id !== null) {
+            clearInterval(polling_id);
+            polling_id = null;
+        }
+
+        if (polling_mode != "off") {
+            polling_id = setInterval(poll_cpu, polling_interval);
+        }
+    }
+
+    pollingForm.addEventListener("change", async function (evt) {
+        let prev_mode = polling_mode;
+        let prev_interval = polling_interval;
+        polling_mode = pollingForm.elements["mode"].value;
+        polling_interval = parseInt(pollingForm.elements["interval"].value);
+        if ((prev_mode != polling_mode) || (prev_interval != polling_interval)) {
+            if (polling_mode == "off") {
+                let summary = document.getElementById("pollingDisplay").querySelector("summary");
+                summary.textContent = "Polling - off";
+            } else {
+                await poll_cpu();
+            }
+            setup_polling(polling_mode, polling_interval);
+        }
+    });
+
+    pollingForm.addEventListener("submit", prevent_submission);
+
+    setup_polling(polling_mode, polling_interval);
+
     let connectButton = document.querySelector("#connect");
     let runHaltButton = document.querySelector("#runHalt");
     let stepButton = document.querySelector("#step");
@@ -416,7 +503,12 @@ document.addEventListener('DOMContentLoaded', event => {
 
         let probeInfo = document.getElementById("probeInfo");
         let summary = probeInfo.querySelector("summary");
-        summary.textContent = `Debugger - Disconnected`;
+        summary.textContent = "Debugger - Disconnected";
+
+        let pollingForm = document.getElementById("pollingForm");
+        let pollingInfo = document.getElementById("pollingDisplay");
+        summary = pollingInfo.querySelector("summary");
+        summary.textContent = "Polling - Idle";
 
         document.getElementById("productName").textContent = "";
         document.getElementById("mfgName").textContent = "";

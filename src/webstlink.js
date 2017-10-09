@@ -132,6 +132,10 @@ export default class WebStlink {
         return false;
     }
 
+    get examined() {
+        return (this._mcu !== null);
+    }
+
     async find_mcus_by_core() {
         let cpuid = await this._stlink.get_debugreg32(CPUID_REG);
         if (cpuid == 0) {
