@@ -9,6 +9,7 @@ Tested features
 * Reading registers
 * Reading memory
 * Halt/step/run/reset
+* Erasing/writing flash (tested on STM32F103 only)
 
 Dependencies
 ------------
