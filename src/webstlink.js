@@ -309,7 +309,7 @@ export default class WebStlink {
         }
     }
 
-    async _unsafe_inspect_cpu() {
+    async _unsafe_inspect_cpu(flush = false) {
         let dhcsr = await this._driver.core_status();
         let lockup = (dhcsr & libstlink.drivers.Stm32.DHCSR_STATUS_LOCKUP_BIT) != 0;
         if (lockup) {
@@ -323,6 +323,10 @@ export default class WebStlink {
         };
 
         let prev_status = this._last_cpu_status;
+        if (flush) {
+            prev_status = null;
+        }
+
         this._last_cpu_status = status;
 
         this._dispatch_callback('inspect', status);
@@ -365,8 +369,7 @@ export default class WebStlink {
         await this._mutex.lock();
         try {
             await this._driver.core_step();
-            await this._unsafe_inspect_cpu();
-            this._dispatch_callback('halted');
+            await this._unsafe_inspect_cpu(true);
         } finally {
             this._mutex.unlock();
         }
@@ -397,11 +400,10 @@ export default class WebStlink {
         try {
             if (halt) {
                 await this._driver.core_halt();
-                this._dispatch_callback('halted');
             } else {
                 await this._driver.core_reset();
             }
-            await this._unsafe_inspect_cpu();
+            await this._unsafe_inspect_cpu(true);
         } finally {
             this._mutex.unlock();
         }
@@ -448,6 +450,7 @@ export default class WebStlink {
                 verify: true,
                 erase_sizes: this._mcus_by_devid.erase_sizes
             });
+            await this._unsafe_inspect_cpu(true);
         } finally {
             this._mutex.unlock();
         }
