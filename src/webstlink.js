@@ -422,6 +422,29 @@ export default class WebStlink {
         }
     }
 
+    async read_register(name) {
+        await this._mutex.lock();
+        try {
+            return await this._driver.get_reg(name);
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async read_instruction(pc) {
+        await this._mutex.lock();
+        try {
+            if (pc === undefined) {
+                pc = await this._driver.get_reg("PC");
+            }
+
+            const addr = pc & 0xfffffffe;
+            return await this._stlink.get_debugreg16(addr);
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
     async read_memory(addr, size) {
         await this._mutex.lock();
         try {
@@ -454,6 +477,75 @@ export default class WebStlink {
                 verify: true,
                 erase_sizes: this._mcus_by_devid.erase_sizes
             });
+            await this._unsafe_inspect_cpu(true);
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
+    async _unsafe_read_semihost_params(pointer, count) {
+        let param_bytes = await this._driver.get_mem(pointer, count * 4);
+        let view = new DataView(param_bytes.buffer);
+        let params = [];
+        for (let i=0; i < count; i++) {
+            params.push(view.getUint32(i*4, true));
+        }
+        return params;
+    }
+
+    async _unsafe_read_semihost_operation() {
+        let opcode = await this._driver.get_reg("R0");
+        let pointer = await this._driver.get_reg("R1");
+        let operation = { "opcode": opcode };
+        const opcodes = libstlink.semihosting.opcodes;
+        if (opcode == opcodes.SYS_OPEN) {
+            let params = await this._unsafe_read_semihost_params(pointer, 3);
+            let [filename_pointer, mode, filename_length] = params;
+            const modes = ["r", "rb", "r+", "r+b", "w", "wb", "w+", "w+b", "a", "ab", "a+", "a+b"];
+            let filename_bytes = await this._driver.get_mem(filename_pointer, filename_length);
+            operation.mode = modes[mode];
+            operation.filename = String.fromCharCode.apply(undefined, filename_bytes);
+        } else if (opcode == opcodes.SYS_CLOSE) {
+            let params = await this._unsafe_read_semihost_params(pointer, 1);
+            [operation.handle] = params;
+        } else if (opcode == opcodes.SYS_WRITE) {
+            let params = await this._unsafe_read_semihost_params(pointer, 3);
+            let [handle, data_pointer, data_length] = params;
+            operation.handle = handle;
+            operation.data = await this._driver.get_mem(data_pointer, data_length);
+        } else if (opcode == opcodes.SYS_ISTTY) {
+            let params = await this._unsafe_read_semihost_params(pointer, 1);
+            [operation.handle] = params;
+        } else if (opcode == opcodes.SYS_FLEN) {
+            let params = await this._unsafe_read_semihost_params(pointer, 1);
+            [operation.handle] = params;
+        }
+
+        return operation;
+    }
+
+    async handle_semihosting(syscall_handler) {
+        await this._mutex.lock();
+        try {
+            // Check if we're halted on a semihost syscall
+            let pc = await this._driver.get_reg("PC");
+            const addr = pc & 0xfffffffe;
+            let inst = await this._stlink.get_debugreg16(addr);
+            if (inst != 0xBEAB) {
+                return;
+            }
+
+            // Read the syscall params and pass them to the handler
+            let oper = await this._unsafe_read_semihost_operation();
+            let result = syscall_handler(oper);
+            if (parseInt(result) != result) {
+                throw new libstlink.exceptions.Exception("Non-numeric semihost syscall result " + result);
+            }
+
+            // Return the syscall result in R0 and resume
+            await this._driver.set_reg("R0", result);
+            await this._driver.set_reg("PC", pc + 2);
+            await this._driver.core_run();
             await this._unsafe_inspect_cpu(true);
         } finally {
             this._mutex.unlock();

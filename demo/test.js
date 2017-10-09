@@ -1,6 +1,6 @@
 import * as libstlink from '../src/lib/package.js';
 import WebStlink from '../src/webstlink.js';
-import { hex_word, hex_octet_array } from '../src/lib/util.js';
+import { hex_octet, hex_word, hex_octet_array } from '../src/lib/util.js';
 
 function fetchResource(url) {
     return new Promise(function(resolve, reject) {
@@ -434,6 +434,37 @@ document.addEventListener('DOMContentLoaded', event => {
         }
     }
 
+    let semihostingEnabled = document.getElementById("semihostingEnabled");
+    semihostingEnabled.addEventListener("change", function (evt) {
+        let summary = document.getElementById("semihostingDisplay").querySelector("summary");
+        summary.textContent = "Semihosting - " + (semihostingEnabled.checked ? "enabled" : "off");
+    });
+
+    let semihostingOutput = document.getElementById("semihostingOutput");
+    async function handle_semihosting() {
+        await stlink.handle_semihosting(oper => {
+            console.log(oper);
+            const opcodes = libstlink.semihosting.opcodes;
+            if (oper.opcode == opcodes.SYS_OPEN) {
+                // TODO: keep track of file handles
+                return 1;
+            } else if (oper.opcode == opcodes.SYS_WRITE) {
+                let msg = String.fromCharCode.apply(undefined, oper.data);
+                semihostingOutput.textContent += msg;
+                return 0;
+            } else if (oper.opcode == opcodes.SYS_FLEN) {
+                return 0;
+            } else if (oper.opcode == opcodes.SYS_ERRNO) {
+                return 0;
+            } else if (oper.opcode == opcodes.SYS_ISTTY) {
+                // TODO: keep track of file handles
+                return 1;
+            } else {
+                return -1;
+            }
+        });
+    }
+
     async function on_successful_attach(stlink, device) {
         // Export for manual debugging
         window.stlink = stlink;
@@ -475,6 +506,9 @@ document.addEventListener('DOMContentLoaded', event => {
             }
             if (document.getElementById("autoReadMemory").checked) {
                 await read_and_display_memory(false);
+            }
+            if (semihostingEnabled.checked) {
+                await handle_semihosting();
             }
         });
 

@@ -10,6 +10,8 @@ import * as exceptions from './stlinkex.js';
 import Stlinkv2 from './stlinkv2.js';
 import Logger from './dbg.js';
 import DEVICES from './stm32devices.js';
+import * as semihosting from './semihosting.js';
+
 
 import { Stm32 } from './stm32.js';
 import { Stm32FP, Stm32FPXL } from './stm32fp.js';
@@ -22,4 +24,4 @@ let drivers = {
     Stm32FS: Stm32FS
 };
 
-export { exceptions, usb, drivers, Stlinkv2, Logger, DEVICES };
+export { exceptions, usb, drivers, Stlinkv2, Logger, DEVICES, semihosting };
