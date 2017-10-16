@@ -22,6 +22,60 @@ function H24(v) {
     return hex_string(v, 3);
 }
 
+const TARGET_UNKNOWN = "UNKNOWN";
+const TARGET_RUNNING = "RUNNING";
+const TARGET_HALTED = "HALTED";
+const TARGET_RESET = "RESET";
+const TARGET_DEBUG_RUNNING = "DEBUG_RUNNING";
+
+class TargetCache {
+    constructor(webstlink) {
+        this._webstlink = webstlink;
+        this.state = TARGET_UNKNOWN;
+        this.registers = {};
+        this.num_registers = undefined;
+    }
+
+    update_state(status, flush) {
+        const prev_state = this.state;
+        if (status.halted) {
+            this.state = TARGET_HALTED;
+            if ((prev_state != TARGET_HALTED && prev_state != TARGET_RESET) || flush) {
+                this.invalidate_registers();
+                this._webstlink._dispatch_callback('halted');
+            }
+        } else {
+            if (prev_state != TARGET_DEBUG_RUNNING) {
+                this.state = TARGET_RUNNING;
+                if ((prev_state != TARGET_RUNNING) || flush) {
+                    this.invalidate_registers();
+                    this._webstlink._dispatch_callback('resumed');
+                }
+            }
+        }
+    }
+
+    invalidate_registers() {
+        this.registers = {};
+    }
+
+    get_register(name) {
+        return this.registers[name];
+    }
+
+    set_register(name, value) {
+        this.registers[name] = value;
+    }
+
+    set_num_registers(count) {
+        this.num_registers = count;
+    }
+
+    has_all_registers() {
+        return (this.num_registers === Object.entries(this.registers).length);
+    }
+}
+
 export default class WebStlink {
     constructor(dbg = null) {
         this._stlink = null;
@@ -34,6 +88,7 @@ export default class WebStlink {
             halted: [],
             resumed: [],
         };
+        this._cache = null;
     }
 
     add_callback(name, handler) {
@@ -307,6 +362,9 @@ export default class WebStlink {
                 eeprom_size: this._eeprom_size,
                 freq: this._mcu.freq,
             };
+
+            this._cache = new TargetCache(this);
+
             return info;
         } finally {
             this._mutex.unlock();
@@ -326,19 +384,10 @@ export default class WebStlink {
             debug:  (dhcsr & libstlink.drivers.Stm32.DHCSR_DEBUGEN_BIT) != 0,
         };
 
-        let prev_status = this._last_cpu_status;
-        if (flush) {
-            prev_status = null;
-        }
-
         this._last_cpu_status = status;
-
         this._dispatch_callback('inspect', status);
+        this._cache.update_state(status, flush);
 
-        if ((prev_status === null) || (prev_status.halted != status.halted)) {
-            this._dispatch_callback(status.halted ? 'halted' : 'resumed');
-        }
-        
         return status;
     }
 
@@ -416,7 +465,7 @@ export default class WebStlink {
     async read_registers() {
         await this._mutex.lock();
         try {
-            return await this._driver.get_reg_all();
+            return await this._unsafe_read_registers();
         } finally {
             this._mutex.unlock();
         }
@@ -425,7 +474,7 @@ export default class WebStlink {
     async read_register(name) {
         await this._mutex.lock();
         try {
-            return await this._driver.get_reg(name);
+            return await this._unsafe_read_register(name);
         } finally {
             this._mutex.unlock();
         }
@@ -435,7 +484,7 @@ export default class WebStlink {
         await this._mutex.lock();
         try {
             if (pc === undefined) {
-                pc = await this._driver.get_reg("PC");
+                pc = await this._unsafe_read_register("PC");
             }
 
             const addr = pc & 0xfffffffe;
@@ -477,10 +526,38 @@ export default class WebStlink {
                 verify: true,
                 erase_sizes: this._mcus_by_devid.erase_sizes
             });
+            this._cache.invalidate_registers();
             await this._unsafe_inspect_cpu(true);
         } finally {
             this._mutex.unlock();
         }
+    }
+
+    async _unsafe_read_register(name) {
+        let value = this._cache.get_register(name);
+        if (value !== undefined) {
+            return value;
+        }
+        value = await this._driver.get_reg(name);
+        this._cache.set_register(name, value);
+
+        return value;
+    }
+
+    async _unsafe_read_registers() {
+        if (this._cache.has_all_registers()) {
+            return this._cache.registers;
+        } else {
+            let registers = await this._driver.get_reg_all();
+            this._cache.set_num_registers(Object.entries(registers).length);
+            this._cache.registers = registers;
+            return registers;
+        }
+    }
+
+    async _unsafe_set_register(name, value) {
+        await this._driver.set_reg(name, value);
+        this._cache.set_register(name, value);
     }
 
     async _unsafe_read_semihost_params(pointer, count) {
@@ -494,8 +571,8 @@ export default class WebStlink {
     }
 
     async _unsafe_read_semihost_operation() {
-        let opcode = await this._driver.get_reg("R0");
-        let pointer = await this._driver.get_reg("R1");
+        let opcode = await this._unsafe_read_register("R0");
+        let pointer = await this._unsafe_read_register("R1");
         let operation = { "opcode": opcode };
         const opcodes = libstlink.semihosting.opcodes;
         if (opcode == opcodes.SYS_OPEN) {
@@ -528,7 +605,7 @@ export default class WebStlink {
         await this._mutex.lock();
         try {
             // Check if we're halted on a semihost syscall
-            let pc = await this._driver.get_reg("PC");
+            let pc = await this._unsafe_read_register("PC");
             const addr = pc & 0xfffffffe;
             let inst = await this._stlink.get_debugreg16(addr);
             if (inst != 0xBEAB) {
@@ -543,8 +620,8 @@ export default class WebStlink {
             }
 
             // Return the syscall result in R0 and resume
-            await this._driver.set_reg("R0", result);
-            await this._driver.set_reg("PC", pc + 2);
+            await this._unsafe_set_register("R0", result);
+            await this._unsafe_set_register("PC", pc + 2);
             await this._driver.core_run();
             await this._unsafe_inspect_cpu(true);
         } finally {
