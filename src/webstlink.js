@@ -345,7 +345,7 @@ export default class WebStlink {
     async inspect_cpu() {
         await this._mutex.lock();
         try {
-            return this._unsafe_inspect_cpu();
+            return await this._unsafe_inspect_cpu();
         } finally {
             this._mutex.unlock();
         }
