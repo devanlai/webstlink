@@ -403,7 +403,7 @@ export default class WebStlink {
         await this._mutex.lock();
         try {
             if (halt) {
-                await this._driver.core_halt();
+                await this._driver.core_reset_halt();
             } else {
                 await this._driver.core_reset();
             }
