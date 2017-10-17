@@ -103,6 +103,16 @@
       </details>
     </p>
     <p>
+      <details id="disassemblyDisplay">
+        <summary>Disassembly</summary>
+        <label>
+          Instruction Window Size
+          <input type="number" id="disasmWindowSize" title="Number of instructions before and after the PC to decode for context" size="3" min="0" value="4"/ >
+        </label>
+        <textarea id="assemblyContents" readonly></textarea>
+      </details>
+    </p>
+    <p>
       <details id="memoryDisplay">
         <summary>Memory <button id="readMemory" disabled>Read now</button></summary>
         <label>

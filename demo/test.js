@@ -1,6 +1,7 @@
 import * as libstlink from '../src/lib/package.js';
 import WebStlink from '../src/webstlink.js';
 import { hex_octet, hex_word, hex_octet_array } from '../src/lib/util.js';
+import cs from './capstone-arm.min.js';
 
 function fetchResource(url) {
     return new Promise(function(resolve, reject) {
@@ -370,6 +371,42 @@ document.addEventListener('DOMContentLoaded', event => {
         }
     }
 
+    const mode = cs.MODE_THUMB + cs.MODE_MCLASS
+               + cs.MODE_LITTLE_ENDIAN;
+    let decoder = new cs.Capstone(cs.ARCH_ARM, mode);
+    async function disassemble_current_instruction() {
+        if (stlink !== null && stlink.connected) {
+            let pc = await stlink.read_register("PC");
+            const window_size = document.getElementById("disasmWindowSize").value;
+            const addr = (pc & 0xfffffffe);
+            const start_addr = addr - 2 * window_size;
+            const end_addr = addr + 2 + 2 * window_size;
+            let inst_bytes = await stlink.read_memory(start_addr, (end_addr - start_addr + 1));
+            let disasm = "";
+            try {
+                let instructions = decoder.disasm(inst_bytes, start_addr);
+                let lines = [];
+                for (let inst of instructions) {
+                    let line = hex_word(inst.address);
+                    if (inst.address == (pc & 0xfffffffe)) {
+                        line += "  → ";
+                    } else {
+                        line += "    ";
+                    }
+                    line += inst.mnemonic.padEnd(8);
+                    line += inst.op_str;
+                    lines.push(line);
+                }
+                disasm = lines.join("\n");
+            } catch (err) {
+                logger.error("Failed to decode instructions [${hex_word(start_addr)}-${hex_word(end_addr)}]")
+            }
+            let disp = document.getElementById("assemblyContents");
+            disp.textContent = disasm;
+            disp.rows = 1 + (2 * window_size);
+        }
+    }
+
     readMemoryButton.addEventListener('click', function (evt) {
         return read_and_display_memory(true);
     });
@@ -512,6 +549,7 @@ document.addEventListener('DOMContentLoaded', event => {
             if (document.getElementById("autoReadMemory").checked) {
                 await read_and_display_memory(false);
             }
+            await disassemble_current_instruction();
         });
 
         // Update the UI with detected target info and debug state
