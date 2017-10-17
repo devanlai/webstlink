@@ -42,14 +42,14 @@ class TargetCache {
             this.state = TARGET_HALTED;
             if ((prev_state != TARGET_HALTED && prev_state != TARGET_RESET) || flush) {
                 this.invalidate_registers();
-                this._webstlink._dispatch_callback('halted');
+                this._webstlink._dispatch_callback('halted', status);
             }
         } else {
             if (prev_state != TARGET_DEBUG_RUNNING) {
                 this.state = TARGET_RUNNING;
                 if ((prev_state != TARGET_RUNNING) || flush) {
                     this.invalidate_registers();
-                    this._webstlink._dispatch_callback('resumed');
+                    this._webstlink._dispatch_callback('resumed', status);
                 }
             }
         }
@@ -88,6 +88,7 @@ export default class WebStlink {
             halted: [],
             resumed: [],
         };
+        this._callback_mutex = new Mutex;
         this._cache = null;
     }
 
@@ -104,9 +105,34 @@ export default class WebStlink {
     }
 
     _dispatch_callback(name, ...args) {
-        for (let callback of this._callbacks[name]) {
-            callback.apply(undefined, args);
+        let mutex = this._callback_mutex;
+        async function run_callbacks(callbacks) {
+            // Ensure that the previous callback chain is done before
+            // starting this callback chain
+            await mutex.lock();
+
+            try {
+                // Run callbacks in order
+                for (let callback of callbacks) {
+                    let result = callback.apply(undefined, args);
+                    if (result instanceof Promise) {
+                        result = await result;
+                    }
+
+                    // Stop callbacks if done
+                    if (result === false) {
+                        break;
+                    }
+                }
+            } catch (err) {
+                throw new libstlink.exceptions.Exception("Error while executing callback for " + name + ":" + err);
+            } finally {
+                mutex.unlock();
+            }
         }
+
+        // Run callbacks without waiting to avoid deadlock
+        run_callbacks(this._callbacks[name].slice(0));
     }
 
     async attach(device, device_dbg = null) {
