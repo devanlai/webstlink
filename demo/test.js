@@ -317,18 +317,10 @@ document.addEventListener('DOMContentLoaded', event => {
     let runHaltButton = document.querySelector("#runHalt");
     let stepButton = document.querySelector("#step");
     let resetButton = document.querySelector("#reset");
-    let debugButton = document.querySelector("#debug");
     let readRegistersButton = document.querySelector("#readRegisters");
     let readMemoryButton = document.querySelector("#readMemory");
     let flashButton = document.querySelector("#flash");
 
-    debugButton.addEventListener('click', async function() {
-        const enable = debugButton.textContent.includes("Enable");
-        if (stlink !== null && stlink.connected) {
-            await stlink.set_debug_enable(enable);
-        }
-    });
-    
     runHaltButton.addEventListener('click', async function() {
         if (stlink !== null && stlink.connected) {
             if (stlink.last_cpu_status.halted) {
@@ -407,7 +399,6 @@ document.addEventListener('DOMContentLoaded', event => {
 
     function update_capabilities(status) {
         if (status.debug) {
-            debugButton.textContent = "Disable debugging";
             if (status.halted) {
                 runHaltButton.textContent = "Run";
                 readRegistersButton.disabled = false;
@@ -424,7 +415,6 @@ document.addEventListener('DOMContentLoaded', event => {
             runHaltButton.disabled = false;
             resetButton.disabled = false;
         } else {
-            debugButton.textContent = "Enable debugging";
             runHaltButton.disabled = true;
             resetButton.disabled = true;
             stepButton.disabled = true;
@@ -472,7 +462,6 @@ document.addEventListener('DOMContentLoaded', event => {
 
         // Reset settings
         connectButton.textContent = "Disconnect";
-        debugButton.disabled = false;
         reset_registers();
 
         // Populate debugger info
@@ -492,13 +481,17 @@ document.addEventListener('DOMContentLoaded', event => {
         let target = await stlink.detect_cpu([], pick_sram_variant);
 
         // Attach UI callbacks for whenever the CPU state is inspected
-        stlink.add_callback('inspect', status => {
+        function update_on_inspection(status) {
             // Update display
             update_target_status(status, null);
             // Update buttons
             update_capabilities(status);
-        });
+        }
 
+        stlink.add_callback('halted', update_on_inspection);
+        stlink.add_callback('resumed', update_on_inspection);
+
+        // Handle auto-read-on-halt functionality
         stlink.add_callback('halted', async () => {
             if (document.getElementById("autoReadRegisters").checked) {
                 let registers = await stlink.read_registers();
@@ -514,7 +507,14 @@ document.addEventListener('DOMContentLoaded', event => {
 
         // Update the UI with detected target info and debug state
         let status = await stlink.inspect_cpu();
+        if (!status.debug) {
+            // Automatically enable debugging
+            await stlink.set_debug_enable(true);
+            status = await stlink.inspect_cpu();
+        }
+
         update_target_status(status, target);
+        update_capabilities(status);
 
         // Set the read memory address to the SRAM start
         document.getElementById("memoryReadAddress").value = "0x" + hex_word(target.sram_start);
@@ -526,7 +526,6 @@ document.addEventListener('DOMContentLoaded', event => {
     function on_disconnect() {
         logger.info("Device disconnected");
         connectButton.textContent = "Connect";
-        debugButton.disabled = true;
 
         readRegistersButton.disabled = true;
         readMemoryButton.disabled = true;
