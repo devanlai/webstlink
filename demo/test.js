@@ -432,8 +432,7 @@ document.addEventListener('DOMContentLoaded', event => {
 
     let semihostingOutput = document.getElementById("semihostingOutput");
     async function handle_semihosting() {
-        await stlink.handle_semihosting(oper => {
-            console.log(oper);
+        let handled = await stlink.handle_semihosting(oper => {
             const opcodes = libstlink.semihosting.opcodes;
             if (oper.opcode == opcodes.SYS_OPEN) {
                 // TODO: keep track of file handles
@@ -453,6 +452,8 @@ document.addEventListener('DOMContentLoaded', event => {
                 return -1;
             }
         });
+
+        return handled;
     }
 
     async function on_successful_attach(stlink, device) {
@@ -480,6 +481,17 @@ document.addEventListener('DOMContentLoaded', event => {
         // Detect attached target CPU
         let target = await stlink.detect_cpu([], pick_sram_variant);
 
+        // Attach the semihosting handler
+        stlink.add_callback('halted', async () => {
+            if (semihostingEnabled.checked) {
+                let semihosted = await handle_semihosting();
+                if (semihosted && !stlink.last_cpu_status.halted) {
+                    // Skip updating the UI when handling semihosting
+                    return false;
+                }
+            }
+        });
+
         // Attach UI callbacks for whenever the CPU state is inspected
         function update_on_inspection(status) {
             // Update display
@@ -499,9 +511,6 @@ document.addEventListener('DOMContentLoaded', event => {
             }
             if (document.getElementById("autoReadMemory").checked) {
                 await read_and_display_memory(false);
-            }
-            if (semihostingEnabled.checked) {
-                await handle_semihosting();
             }
         });
 

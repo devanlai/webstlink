@@ -635,7 +635,7 @@ export default class WebStlink {
             const addr = pc & 0xfffffffe;
             let inst = await this._stlink.get_debugreg16(addr);
             if (inst != 0xBEAB) {
-                return;
+                return false;
             }
 
             // Read the syscall params and pass them to the handler
@@ -650,6 +650,7 @@ export default class WebStlink {
             await this._unsafe_set_register("PC", pc + 2);
             await this._driver.core_run();
             await this._unsafe_inspect_cpu(true);
+            return true;
         } finally {
             this._mutex.unlock();
         }
