@@ -399,7 +399,7 @@ document.addEventListener('DOMContentLoaded', event => {
                 }
                 disasm = lines.join("\n");
             } catch (err) {
-                logger.error("Failed to decode instructions [${hex_word(start_addr)}-${hex_word(end_addr)}]")
+                logger.error(`Failed to decode instructions [${hex_word(start_addr)}-${hex_word(end_addr)}]`)
             }
             let disp = document.getElementById("assemblyContents");
             disp.textContent = disasm;
