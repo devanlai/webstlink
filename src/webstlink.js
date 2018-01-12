@@ -627,6 +627,15 @@ export default class WebStlink {
         return operation;
     }
 
+    async perform_with_mutex(func, ...args) {
+        await this._mutex.lock();
+        try {
+            return await func.apply(this, args);
+        } finally {
+            this._mutex.unlock();
+        }
+    }
+
     async handle_semihosting(syscall_handler) {
         await this._mutex.lock();
         try {

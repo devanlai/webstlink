@@ -171,6 +171,15 @@
         <label for="semihostingOutput">Semihosting output</label>
         <textarea id="semihostingOutput" readonly></textarea>
       </details>
+      <details id="rttDisplay">
+        <summary>RTT - off</summary>
+        <input type="checkbox" id="rttEnabled">Enable RTT</input>
+        <label>RTT Control String:
+          <input type="text" id="rttControlString" value="SEGGER RTT" size="16"/>
+        </label>
+        <label for="rttOutput">RTT output</label>
+        <textarea id="rttOutput" readonly></textarea>
+      </details>
     </p>
     <p>
       <details id="logWrapper">

@@ -2,6 +2,7 @@ import * as libstlink from '../src/lib/package.js';
 import WebStlink from '../src/webstlink.js';
 import { hex_octet, hex_word, hex_octet_array } from '../src/lib/util.js';
 import cs from './capstone-arm.min.js';
+import { find_rtt_control_block } from './rtt.js';
 
 function fetchResource(url) {
     return new Promise(function(resolve, reject) {
@@ -236,6 +237,9 @@ document.addEventListener('DOMContentLoaded', event => {
     let polling_mode = "on";
     let polling_interval = 200;
 
+    let rtt = null;
+    let rttSummary = document.getElementById("rttDisplay").querySelector("summary");
+    let rttOutput = document.getElementById("rttOutput");
     async function poll_cpu() {
         let summary = document.getElementById("pollingDisplay").querySelector("summary");
 
@@ -272,6 +276,22 @@ document.addEventListener('DOMContentLoaded', event => {
                     }
                     if (document.getElementById("pollMemory").checked) {
                         await read_and_display_memory(false);
+                    }
+                    if (document.getElementById("rttEnabled").checked) {
+                        rttSummary.textContent = "RTT - on";
+                        if (rtt === null) {
+                            rtt = await find_rtt_control_block(stlink, "SEGGER RTT");
+                        }
+                        if (rtt !== null) {
+                            let data = await rtt.up_buffers[0].read_data(stlink);
+                            if (data !== null) {
+                                let str = String.fromCharCode.apply(undefined, data);
+                                rttOutput.textContent += str;
+                            }
+                        }
+                    } else {
+                        rttSummary.textContent = "RTT - off";
+                        rtt = null;
                     }
                 }
             } else {
@@ -493,6 +513,8 @@ document.addEventListener('DOMContentLoaded', event => {
         return handled;
     }
 
+
+    let rttEnabled = document.getElementById("rttEnabled");
     async function on_successful_attach(stlink, device) {
         // Export for manual debugging
         window.stlink = stlink;
